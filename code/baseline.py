@@ -4,7 +4,7 @@ sys.path.append("/root/champs/")
 
 import numpy as np
 import pandas as pd
-
+import pickle
 import matplotlib
 import matplotlib.pyplot as plt
 from tqdm import tqdm_notebook
@@ -130,8 +130,7 @@ if __name__== '__main__':
                                                           n_estimators=15000)
 
     print("saving results...")
-    with open('../results/baseline.json', 'w') as outfile:
-        json.dump(result_dict_lgb, outfile)
+    np.save('../results/baseline.npy', result_dict_lgb)
 
     print("making submission...")
     sub['scalar_coupling_constant'] = result_dict_lgb['prediction']
