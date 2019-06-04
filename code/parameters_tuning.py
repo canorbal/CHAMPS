@@ -99,21 +99,23 @@ if __name__== '__main__':
     X_test = test.drop(['id', 'molecule_name'], axis=1)
 
 
-    params = {'num_leaves': 128,
-              'objective': 'regression',
-              'learning_rate': 0.3,
-              "boosting_type": "gbdt",
-              "subsample_freq": 1,
-              "subsample": 0.9,
-              "bagging_seed": 11,
-              "metric": 'mae',
-              "verbosity": -1,
-              'reg_alpha': 0.1302650970728192,
-              'reg_lambda': 0.3603427518866501,
-              'colsample_bytree': 1.0,
-              'device': 'gpu',
-              'gpu_device_id': 0
-              }
+    params = {
+        'num_leaves': 128,
+        'objective': 'regression',
+        'learning_rate': 0.3,
+        "boosting_type": "gbdt",
+        "subsample_freq": 1,
+        "subsample": 0.75,
+        "bagging_seed": 11,
+        "metric": 'mae',
+        "verbosity": -1,
+        'reg_alpha': 0.1302650970728192,
+        'reg_lambda': 0.3603427518866501,
+        'colsample_bytree': 1.0,
+        'device': 'gpu',
+        'gpu_device_id': 0
+    }
+
 
     print("training models...")
     result_dict_lgb = artgor_utils.train_model_regression(X=X, X_test=X_test,
@@ -128,8 +130,8 @@ if __name__== '__main__':
                                                           n_estimators=30000)
 
     print("saving results...")
-    np.save('../results/parameters_tuning_baseline.npy', result_dict_lgb)
+    np.save('../results/subsample_parameters_tuning_baseline.npy', result_dict_lgb)
 
     print("making submission...")
     sub['scalar_coupling_constant'] = result_dict_lgb['prediction']
-    sub.to_csv('../submissions/parameters_tuning_baseline.csv', index=False)
+    sub.to_csv('../submissions/subsample_parameters_tuning_baseline.csv', index=False)
