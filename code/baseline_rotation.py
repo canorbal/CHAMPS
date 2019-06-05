@@ -50,7 +50,7 @@ def create_features_full(df):
     df['atom_1_couples_count'] = df.groupby(['molecule_name', 'atom_index_1'])['id'].transform('count')
 
     num_cols = ['x_1', 'y_1', 'z_1', 'dist', 'dist_x', 'dist_y', 'dist_z']
-    cat_cols = ['atom_index_0', 'atom_index_1', 'type', 'atom_1', 'type_0']
+    cat_cols = ['atom_index_0', 'atom_index_1', 'type', 'atom_0', 'atom_1', 'type_0']
     aggs = ['mean', 'max', 'std', 'min']
     for col in cat_cols:
         df[f'molecule_{col}_count'] = df.groupby('molecule_name')[col].transform('count')
@@ -198,6 +198,110 @@ def create_features(df):
     return df
 
 
+good_columns = [
+    'molecule_atom_index_0_dist_min',
+    'molecule_atom_index_0_dist_max',
+    'molecule_atom_index_0_dist_mean',
+    'molecule_atom_index_0_dist_std',
+
+    'molecule_atom_index_1_dist_min',
+    'molecule_atom_index_1_dist_max',
+    'molecule_atom_index_1_dist_mean',
+    'molecule_atom_index_1_dist_std',
+
+    'dist',
+
+    'molecule_atom_index_0_dist_max_diff',
+    'molecule_atom_index_0_dist_std_diff',
+    'molecule_atom_index_0_dist_mean_diff',
+    'molecule_atom_index_0_dist_min_diff',
+
+    'molecule_atom_index_1_dist_max_diff',
+    'molecule_atom_index_1_dist_mean_diff',
+    'molecule_atom_index_1_dist_std_diff',
+    'molecule_atom_index_1_dist_min_diff',
+
+    'molecule_atom_index_0_dist_max_div',
+    'molecule_atom_index_0_dist_std_div',
+    'molecule_atom_index_0_dist_min_div',
+    'molecule_atom_index_0_dist_mean_div',
+
+    'molecule_atom_index_1_dist_max_div',
+    'molecule_atom_index_1_dist_std_div',
+    'molecule_atom_index_1_dist_min_div',
+    'molecule_atom_index_1_dist_mean_div',
+
+    'atom_0_couples_count',
+    'atom_1_couples_count',
+
+    'atom_index_0',
+    'atom_index_1',
+
+    'molecule_couples',
+    'molecule_dist_mean',
+
+    'molecule_atom_index_0_x_1_std',
+    'molecule_atom_index_0_y_1_std',
+    'molecule_atom_index_0_z_1_std',
+
+    'molecule_atom_index_1_x_1_std',
+    'molecule_atom_index_1_y_1_std',
+    'molecule_atom_index_1_z_1_std',
+
+    'x_0',
+    'y_0',
+    'z_0',
+
+    'x_1',
+    'y_1',
+    'z_1',
+
+    'molecule_atom_index_0_x_1_max_diff',
+    'molecule_atom_index_0_y_1_max_diff',
+    'molecule_atom_index_0_z_1_max_diff',
+
+    'molecule_atom_index_1_x_1_max_diff',
+    'molecule_atom_index_1_y_1_max_diff',
+    'molecule_atom_index_1_z_1_max_diff',
+
+    'molecule_atom_index_0_x_1_mean_div',
+    'molecule_atom_index_0_y_1_mean_div',
+    'molecule_atom_index_0_z_1_mean_div',
+
+    'molecule_atom_index_1_x_1_mean_div',
+    'molecule_atom_index_1_y_1_mean_div',
+    'molecule_atom_index_1_z_1_mean_div',
+
+    'molecule_atom_index_0_x_1_mean_diff',
+    'molecule_atom_index_0_y_1_mean_diff',
+    'molecule_atom_index_0_z_1_mean_diff',
+
+    'molecule_atom_index_1_x_1_mean_diff',
+    'molecule_atom_index_1_y_1_mean_diff',
+    'molecule_atom_index_1_z_1_mean_diff',
+
+    'molecule_atom_0_dist_min_diff',
+    'molecule_atom_1_dist_min_diff',
+
+
+    'molecule_type_dist_std_diff',
+    'molecule_dist_min',
+
+
+    'molecule_type_dist_min',
+    'molecule_atom_1_dist_min_div',
+    'molecule_dist_max',
+    'molecule_atom_1_dist_std_diff',
+    'molecule_type_dist_max',
+
+
+    'molecule_type_0_dist_std_diff',
+    'molecule_type_dist_mean_diff',
+    'molecule_type_dist_mean_div',
+    'type'
+]
+
+
 if __name__== '__main__':
 
     print("reading data...")
@@ -264,9 +368,9 @@ if __name__== '__main__':
     sorted_train.index = range(0, len(sorted_train))
     folds = KFold(n_splits=10, shuffle=True, random_state=0)
 
-    X = sorted_train.drop(['id', 'molecule_name', 'scalar_coupling_constant'], axis=1)
+    X = sorted_train[good_columns]
     y = sorted_train['scalar_coupling_constant']
-    X_test = test.drop(['id', 'molecule_name'], axis=1)
+    X_test = test[good_columns]
 
     params = {
         'num_leaves': 128,
@@ -281,6 +385,8 @@ if __name__== '__main__':
         'reg_alpha': 0.1302650970728192,
         'reg_lambda': 0.3603427518866501,
         'colsample_bytree': 1.0,
+        'device': 'gpu',
+        'gpu_device_id': 0,
     }
 
     del sorted_train,
