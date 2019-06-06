@@ -310,9 +310,9 @@ if __name__== '__main__':
     structures = pd.read_csv('../data/structures.csv')
     sub = pd.read_csv('../data/sample_submission.csv')
 
-    rotated_molecules = pd.read_csv("../data/random_shift_rotation_structures.csv")
-    for c in ['x', 'y', 'z']:
-        structures[c] = rotated_molecules[c]
+    # rotated_molecules = pd.read_csv("../data/random_shift_rotation_structures.csv")
+    # for c in ['x', 'y', 'z']:
+    #     structures[c] = rotated_molecules[c]
 
     print("mapping info about atoms...")
 
@@ -404,8 +404,8 @@ if __name__== '__main__':
                                                           n_estimators=30000)
 
     print("saving results...")
-    np.save('../results/rotation_baseline_with_feats.npy', result_dict_lgb)
+    np.save('../results/without_rotation_baseline_with_feats.npy', result_dict_lgb)
 
     print("making submission...")
     sub['scalar_coupling_constant'] = result_dict_lgb['prediction']
-    sub.to_csv('../submissions/rotation_baseline_with_feats.csv', index=False)
+    sub.to_csv('../submissions/without_rotation_baseline_with_feats.csv', index=False)

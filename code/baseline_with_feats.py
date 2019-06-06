@@ -232,6 +232,8 @@ good_columns = [
     'molecule_atom_index_1_dist_max_div',
     'molecule_atom_index_0_z_1_std',
     'y_0',
+    'x_0',
+    'z_0',
     'molecule_type_dist_std_diff',
     'molecule_atom_1_dist_min_diff',
     'molecule_atom_index_0_x_1_std',
@@ -323,7 +325,7 @@ if __name__== '__main__':
     params = {
         'num_leaves': 128,
         'objective': 'regression',
-        'learning_rate': 0.3,
+        'learning_rate': 0.01,
         "boosting_type": "gbdt",
         "subsample_freq": 1,
         "subsample": 0.9,
@@ -349,8 +351,8 @@ if __name__== '__main__':
                                                           n_estimators=30000)
 
     print("saving results...")
-    np.save('../results/baseline_with_feats.npy', result_dict_lgb)
+    np.save('../results/baseline_with_feats_tuned_lr.npy', result_dict_lgb)
 
     print("making submission...")
     sub['scalar_coupling_constant'] = result_dict_lgb['prediction']
-    sub.to_csv('../submissions/baseline_with_feats.csv', index=False)
+    sub.to_csv('../submissions/baseline_with_feats_tuned_lr.csv', index=False)
