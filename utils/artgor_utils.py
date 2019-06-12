@@ -164,7 +164,7 @@ def group_mean_log_mae(y_true, y_pred, types, floor=1e-9):
     
 
 def train_model_regression(X, X_test, y, params, folds, model_type='lgb', eval_metric='mae', columns=None, plot_feature_importance=False, model=None,
-                               verbose=10000, early_stopping_rounds=200, n_estimators=50000):
+                               verbose=10000, early_stopping_rounds=200, n_estimators=50000, cat_features=None, res_filename=None):
     """
     A function to train a variety of regression models.
     Returns dictionary with oof predictions, test predictions, scores and, if necessary, feature importances.
@@ -248,9 +248,8 @@ def train_model_regression(X, X_test, y, params, folds, model_type='lgb', eval_m
             y_pred = model.predict(X_test).reshape(-1,)
         
         if model_type == 'cat':
-            model = CatBoostRegressor(iterations=20000,  eval_metric=metrics_dict[eval_metric]['catboost_metric_name'], **params,
-                                      loss_function=metrics_dict[eval_metric]['catboost_metric_name'])
-            model.fit(X_train, y_train, eval_set=(X_valid, y_valid), cat_features=[], use_best_model=True, verbose=False)
+            model = CatBoostRegressor(**params,)
+            model.fit(X_train, y_train, eval_set=(X_valid, y_valid), cat_features=cat_features)
 
             y_pred_valid = model.predict(X_valid)
             y_pred = model.predict(X_test)
@@ -271,6 +270,11 @@ def train_model_regression(X, X_test, y, params, folds, model_type='lgb', eval_m
             fold_importance["fold"] = fold_n + 1
             feature_importance = pd.concat([feature_importance, fold_importance], axis=0)
 
+        result_dict['feature_importance'] = feature_importance
+        if res_filename is not None:
+            print("saving results...")
+            np.save(res_filename, result_dict)
+
     prediction /= folds.n_splits
     
     print('CV mean score: {0:.4f}, std: {1:.4f}.'.format(np.mean(scores), np.std(scores)))
@@ -289,7 +293,7 @@ def train_model_regression(X, X_test, y, params, folds, model_type='lgb', eval_m
 
             plt.figure(figsize=(16, 12));
             sns.barplot(x="importance", y="feature", data=best_features.sort_values(by="importance", ascending=False));
-            plt.title('LGB Features (avg over folds)');
+            plt.title('LGB Features (avg over folds)')
             
             result_dict['feature_importance'] = feature_importance
         
