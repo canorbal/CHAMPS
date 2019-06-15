@@ -1,5 +1,11 @@
 import pandas as pd
+import numpy as np
 from utils import artgor_utils
+import ase
+import ase.io
+from ase.calculators.emt import EMT
+from ase.eos import calculate_eos
+from tqdm import tqdm
 
 good_columns = [
     'molecule_atom_index_0_dist_min',
@@ -67,7 +73,6 @@ good_columns = [
     'molecule_atom_0_dist_y_min',
     'molecule_atom_1_dist_min_diff',
     'molecule_atom_index_0_dist_x_mean_diff',
-    'atom_index_1',
     'molecule_atom_index_1_z_0_mean_diff',
     'molecule_atom_index_0_dist_z_max_diff',
     'molecule_atom_index_0_dist_x_max_diff',
@@ -172,7 +177,6 @@ good_columns = [
     'molecule_atom_1_dist_max_diff',
     'molecule_atom_index_1_dist_x_max_diff',
     'molecule_atom_0_y_1_max_diff',
-    'atom_index_0',
     'molecule_atom_index_1_dist_x_mean_diff',
     'molecule_type_y_1_max',
     'molecule_type_dist_y_max_diff',
@@ -203,7 +207,8 @@ good_columns = [
     'molecule_atom_1_dist_x_max_diff',
     'molecule_atom_1_dist_z_max_diff',
 
-
+    'atom_index_1',
+    'atom_index_0',
     'type',
     'atom_0',
     'atom_1',
@@ -405,3 +410,55 @@ def create_features(df):
 
     df = artgor_utils.reduce_mem_usage(df)
     return df
+
+
+def process_ase_df(df):
+    res_list = []
+    k_top = 4
+    previous_molecule = None
+    failed_force = 0
+
+    for count_rows, row in tqdm(df.iterrows(), total=len(df)):
+        results = {}
+        ids_list = []
+        molecule_name = row['molecule_name']
+        results['molecule_name'] = molecule_name
+
+        if previous_molecule is None or previous_molecule != molecule_name:
+            file_name = f'../data/structures_dir/{molecule_name}.xyz'
+            atoms = ase.io.read(file_name)
+            atoms.set_calculator(EMT())
+
+        for atom_ind in range(2):
+            results[f'atom_index_{atom_ind}'] = row[f'atom_index_{atom_ind}']
+
+            distances = atoms.get_distances(row[f'atom_index_{atom_ind}'],
+                                            range(len(atoms)))
+            try:
+                forces = atoms.get_forces()[row[f'atom_index_{atom_ind}']]
+            except Exception:
+                forces = np.array([np.NaN] * 3)
+                failed_force += 1
+
+            for i, dim_name in enumerate(['x', 'y', 'z']):
+                results[f'atom_index_{atom_ind}_force_{dim_name}'] = forces[i]
+
+            idx = np.argsort(distances)[1:k_top]
+            for i in range(len(idx)):
+                prefix = f'atom_index_{atom_ind}_nbhd_{i}'
+                results[prefix + '_dist'] = distances[idx[i]]
+                results[prefix + '_atom'] = atoms[idx[i]].number
+
+            ids_list.append(idx)
+
+        angle1 = atoms.get_angle(ids_list[0][0], row['atom_index_0'],
+                                 row['atom_index_1'])
+        angle2 = atoms.get_angle(ids_list[1][0], row['atom_index_1'],
+                                 row['atom_index_0'])
+        results['angle_1'] = angle1
+        results['angle_2'] = angle2
+        res_list.append(results)
+        previous_molecule = molecule_name
+
+    print(f"Failed to evaluate force on {failed_force} pairs")
+    return pd.DataFrame(res_list)
