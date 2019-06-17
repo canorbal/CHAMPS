@@ -8,6 +8,12 @@ from ase.eos import calculate_eos
 from tqdm import tqdm
 
 good_columns = [
+    'atom_index_1',
+    'atom_index_0',
+    'type',
+    'atom_0',
+    'atom_1',
+
     'molecule_atom_index_0_dist_min',
     'molecule_atom_index_0_dist_max',
     'molecule_atom_index_0_dist_std',
@@ -206,12 +212,6 @@ good_columns = [
     'molecule_type_dist_y_mean_diff',
     'molecule_atom_1_dist_x_max_diff',
     'molecule_atom_1_dist_z_max_diff',
-
-    'atom_index_1',
-    'atom_index_0',
-    'type',
-    'atom_0',
-    'atom_1',
 ]
 
 
@@ -229,9 +229,9 @@ def map_atom_info(df, structures, atom_idx):
 
 
 def oof_features(df):
-    num_cols = ['oof_fc']
+    num_cols = ['fc', 'sd', 'pso', 'dso']
 
-    cat_cols = ['type', 'atom_0', 'atom_1', 'atom_index_0', 'atom_index_1']
+    cat_cols = ['type', 'atom_index_0', 'atom_index_1']
     aggs = ['mean', 'max', 'std', 'min']
 
     for col in cat_cols:
