@@ -462,3 +462,56 @@ def process_ase_df(df):
 
     print(f"Failed to evaluate force on {failed_force} pairs")
     return pd.DataFrame(res_list)
+
+
+def process_symmetry(df):
+    previous_molecule = None
+
+    Rc = 10.
+    p = [(0.4, 0.2), (0.4, 0.5), (0.4, 1.0), ]
+    res_list = []
+
+    def fc(Rij, Rc):
+        y_1 = 0.5 * (np.cos(np.pi * Rij[Rij <= Rc] / Rc) + 1)
+        y_2 = Rij[Rij > Rc] * 0
+        y = np.concatenate((y_1, y_2))
+        return y
+
+    def fc_vect(Rij, Rc):
+        return np.where(Rij <= Rc, 0.5 * (np.cos(np.pi * Rij / Rc) + 1),
+                        0).sum(1)
+
+    def get_G2(Rij, eta, Rs):
+        return np.exp(-eta * (Rij - Rs) ** 2) * fc(Rij, Rc)
+
+    for count_rows, row in tqdm(df.iterrows(), total=len(df)):
+        results = {}
+        molecule_name = row['molecule_name']
+        results['molecule_name'] = molecule_name
+
+        if previous_molecule is None or previous_molecule != molecule_name:
+            file_name = f'../data/structures_dir/{molecule_name}.xyz'
+            atoms = ase.io.read(file_name)
+            natoms = len(atoms)
+
+        all_distances = atoms.get_all_distances()
+        G1 = fc_vect(all_distances, Rc)
+
+        G2 = np.zeros((natoms, len(p)))
+        for i in range(natoms):
+            for j, (eta, Rs) in enumerate(p):
+                G2[i, j] = get_G2(all_distances[i], eta, Rs).sum()
+
+        for atom_ind in range(2):
+            index_value = row[f'atom_index_{atom_ind}']
+            results[f'atom_index_{atom_ind}'] = index_value
+            results[f'atom_index_{atom_ind}_g1_factor'] = G1[index_value]
+
+            for j in range(len(p)):
+                results[f'atom_index_{atom_ind}_g2_factor_{j}_index'] = G2[
+                    index_value, j]
+
+        res_list.append(results)
+        previous_molecule = molecule_name
+
+    return pd.DataFrame(res_list)

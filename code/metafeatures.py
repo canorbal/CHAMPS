@@ -150,7 +150,8 @@ if __name__== '__main__':
     X_test = X_test.drop('molecule_name', axis=1)
 
     params = {
-        'num_leaves': 128,
+        'num_leaves': 512,
+        'max_depth': 9,
         'objective': 'regression',
         'learning_rate': 0.075,
         "boosting_type": "gbdt",

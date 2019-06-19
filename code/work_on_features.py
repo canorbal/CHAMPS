@@ -124,11 +124,17 @@ good_columns = [
 ]
 
 
-
 if __name__== '__main__':
 
     result_filename = '../results/work_on_features.npy'
     sub_filename = '../submissions/work_on_features.csv'
+
+    if os.path.isfile(result_filename):
+        assert False, "Result file exists!"
+
+    if os.path.isfile(sub_filename):
+        assert False, "Submission file exists!"
+
 
     print("reading data...")
     train = pd.read_csv('../data/train.csv')

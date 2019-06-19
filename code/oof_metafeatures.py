@@ -127,6 +127,9 @@ if __name__== '__main__':
         y = sorted_train[oof_colomn]
         result_filename = f'../results/oof_results/{oof_colomn}_oof_results.npy'
 
+        if os.path.isfile(result_filename):
+            assert False, "Result file exists!"
+
         result_dict = artgor_utils.train_model_regression(
             X=X, X_test=X_test, y=y,
             params=params, folds=folds,

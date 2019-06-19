@@ -26,7 +26,7 @@ if __name__== '__main__':
     if os.path.isfile(sub_filename):
         assert False, "Submission file exists!"
 
-    debug = False
+    debug = True
 
     if debug:
         nrows = 100
@@ -36,7 +36,7 @@ if __name__== '__main__':
     else:
         n_folds = 10
         n_estimators = 30000
-        use_stat_cols = 120
+        use_stat_cols = 60
         nrows = None
 
     train_cols_to_load = train_utils.good_columns[:use_stat_cols] + [
