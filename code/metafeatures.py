@@ -181,9 +181,10 @@ if __name__== '__main__':
                                                           res_filename=result_filename
                                                           )
 
-    print("saving results...")
-    np.save(result_filename, result_dict_lgb)
+    if not debug:
+        print("saving results...")
+        np.save(result_filename, result_dict_lgb)
 
-    print("making submission...")
-    sub['scalar_coupling_constant'] = result_dict_lgb['prediction']
-    sub.to_csv(sub_filename, index=False)
+        print("making submission...")
+        sub['scalar_coupling_constant'] = result_dict_lgb['prediction']
+        sub.to_csv(sub_filename, index=False)

@@ -20,13 +20,7 @@ if __name__== '__main__':
     sub_filename = '../submissions/more_metafeatures.csv'
     file_folder = '../data'
 
-    if os.path.isfile(result_filename):
-        assert False, "Result file exists!"
-
-    if os.path.isfile(sub_filename):
-        assert False, "Submission file exists!"
-
-    debug = False
+    debug = True
 
     if debug:
         nrows = 100
@@ -38,6 +32,13 @@ if __name__== '__main__':
         n_estimators = 30000
         use_stat_cols = 120
         nrows = None
+
+    if not debug:
+        if os.path.isfile(result_filename):
+            assert False, "Result file exists!"
+
+        if os.path.isfile(sub_filename):
+            assert False, "Submission file exists!"
 
     train_cols_to_load = train_utils.good_columns[:use_stat_cols] + [
         "molecule_name",
@@ -161,9 +162,10 @@ if __name__== '__main__':
                                                           res_filename=result_filename
                                                           )
 
-    print("saving results...")
-    np.save(result_filename, result_dict_lgb)
+    if not debug:
+        print("saving results...")
+        np.save(result_filename, result_dict_lgb)
 
-    print("making submission...")
-    sub['scalar_coupling_constant'] = result_dict_lgb['prediction']
-    sub.to_csv(sub_filename, index=False)
+        print("making submission...")
+        sub['scalar_coupling_constant'] = result_dict_lgb['prediction']
+        sub.to_csv(sub_filename, index=False)

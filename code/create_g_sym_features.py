@@ -17,7 +17,7 @@ if __name__ == '__main__':
     train = pd.read_csv("../data/train.csv")
     test = pd.read_csv("../data/test.csv")
 
-    debug = True
+    debug = False
     if debug:
         train = train[:100]
         test = test[:100]

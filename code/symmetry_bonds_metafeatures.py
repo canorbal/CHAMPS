@@ -16,17 +16,11 @@ from utils import train_utils
 
 if __name__== '__main__':
 
-    result_filename = '../results/more_metafeatures.npy'
-    sub_filename = '../submissions/more_metafeatures.csv'
+    result_filename = '../results/bonds_symmetry.npy'
+    sub_filename = '../submissions/bonds_symmetry.csv'
     file_folder = '../data'
 
-    if os.path.isfile(result_filename):
-        assert False, "Result file exists!"
-
-    if os.path.isfile(sub_filename):
-        assert False, "Submission file exists!"
-
-    debug = True
+    debug = False
 
     if debug:
         nrows = 100
@@ -36,8 +30,15 @@ if __name__== '__main__':
     else:
         n_folds = 10
         n_estimators = 30000
-        use_stat_cols = 60
+        use_stat_cols = 120
         nrows = None
+
+    if not debug:
+        if os.path.isfile(result_filename):
+            assert False, "Result file exists!"
+
+        if os.path.isfile(sub_filename):
+            assert False, "Submission file exists!"
 
     train_cols_to_load = train_utils.good_columns[:use_stat_cols] + [
         "molecule_name",
@@ -54,7 +55,50 @@ if __name__== '__main__':
     test = pd.read_csv(
         f"{file_folder}/test_stat_features.csv",
         usecols=test_cols_to_load,
-        nrows=nrows)
+        nrows=nrows
+    )
+
+    train_ase = pd.read_csv(f"{file_folder}/ase_train_feats.csv", nrows=nrows)
+    test_ase = pd.read_csv(f"{file_folder}/ase_test_feats.csv", nrows=nrows)
+
+    sym_train = pd.read_csv(f"{file_folder}/symmetry_train_feats.csv", nrows=nrows)
+    sym_test = pd.read_csv(f"{file_folder}/symmetry_test_feats.csv", nrows=nrows)
+
+    for df_train, df_test in zip((train_ase, sym_train), (test_ase, sym_test)):
+        assert (df_train['atom_index_0'] == train['atom_index_0']).sum() == len(train)
+        assert (df_test['atom_index_0'] == test['atom_index_0']).sum() == len(test)
+
+        repeat_cols = [col for col in df_train if col in train.columns]
+        df_train = df_train.drop(repeat_cols, axis=1)
+        df_test = df_test.drop(repeat_cols, axis=1)
+
+        train = pd.concat([train, df_train], axis=1)
+        test = pd.concat([test, df_test], axis=1)
+
+    del df_train, df_test, train_ase, test_ase, sym_test, sym_train
+    train = artgor_utils.reduce_mem_usage(train)
+    test = artgor_utils.reduce_mem_usage(test)
+    gc.collect()
+
+    bonds_train = pd.read_csv(f"{file_folder}/bonds_train.csv", nrows=nrows)
+    bonds_test = pd.read_csv(f"{file_folder}/bonds_test.csv", nrows=nrows)
+
+    assert (bonds_train['atom_index_0'] == train['atom_index_0']).sum() == len(train)
+    assert (bonds_test['atom_index_0'] == test['atom_index_0']).sum() == len(test)
+
+    repeat_cols = [col for col in bonds_train.columns if col in train.columns]
+    repeat_cols_train = repeat_cols + ['scalar_coupling_constant', 'fc', 'sd', 'pso', 'dso']
+    bonds_train = bonds_train.drop(repeat_cols_train, axis=1)
+    repeat_cols.remove('scalar_coupling_constant')
+    bonds_test = bonds_test.drop(repeat_cols, axis=1)
+
+    train = pd.concat([train, bonds_train], axis=1)
+    test = pd.concat([test, bonds_test], axis=1)
+
+    del bonds_train, bonds_test, repeat_cols_train, repeat_cols
+    train = artgor_utils.reduce_mem_usage(train)
+    test = artgor_utils.reduce_mem_usage(test)
+    gc.collect()
 
     sub = pd.read_csv(f'{file_folder}/sample_submission.csv', nrows=nrows)
 
@@ -88,30 +132,13 @@ if __name__== '__main__':
     sorted_train['sum_oof'] = sorted_train[meta_columns].sum(axis=1)
     test['sum_oof'] = test[meta_columns].sum(axis=1)
 
-    print("loading ase features")
-    train_ase = pd.read_csv("../data/ase_train_feats.csv", nrows=nrows)
-    test_ase = pd.read_csv("../data/ase_test_feats.csv", nrows=nrows)
+    sorted_train.drop("molecule_name", axis=1, inplace=True)
 
-    sorted_train = pd.merge(sorted_train, train_ase, how="left",
-                            on=["molecule_name", "atom_index_0", "atom_index_1"])
-
-    test = pd.merge(test, test_ase, how="left",
-                    on=["molecule_name", "atom_index_0", "atom_index_1"])
-
-    print("creating folds...")
-
-    use_columns = (list(train_utils.good_columns[:use_stat_cols]) +
-                   list(meta_columns) +
-                   list(train_ase.columns)) + ['sum_oof']
-    use_columns.remove("molecule_name")
-
-    use_columns = set(use_columns)
-
-    X = sorted_train[use_columns].copy()
+    X = sorted_train.drop('scalar_coupling_constant', axis=1).copy()
     y = sorted_train['scalar_coupling_constant']
-    X_test = test[use_columns].copy()
+    X_test = test.copy()
 
-    del sorted_train, train_ase, test_ase
+    del sorted_train
     gc.collect()
 
     folds = KFold(n_splits=n_folds, shuffle=True, random_state=0)
@@ -128,9 +155,9 @@ if __name__== '__main__':
     print("final shape: ", X.shape)
 
     params = {
-        'num_leaves': 512,
+        'num_leaves': 128,
         'objective': 'regression',
-        'learning_rate': 0.01,
+        'learning_rate': 0.05,
         "boosting_type": "gbdt",
         "subsample_freq": 1,
         "subsample": 0.9,
@@ -161,9 +188,10 @@ if __name__== '__main__':
                                                           res_filename=result_filename
                                                           )
 
-    print("saving results...")
-    np.save(result_filename, result_dict_lgb)
+    if not debug:
+        print("saving results...")
+        np.save(result_filename, result_dict_lgb)
 
-    print("making submission...")
-    sub['scalar_coupling_constant'] = result_dict_lgb['prediction']
-    sub.to_csv(sub_filename, index=False)
+        print("making submission...")
+        sub['scalar_coupling_constant'] = result_dict_lgb['prediction']
+        sub.to_csv(sub_filename, index=False)
