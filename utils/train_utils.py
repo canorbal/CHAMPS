@@ -228,6 +228,15 @@ def map_atom_info(df, structures, atom_idx):
     return df
 
 
+def find_useless_cols(df):
+    res = []
+    for col in df.columns:
+        if df[col].nunique() == 1:
+            res.append(col)
+
+    return res
+
+
 def oof_features(df):
     num_cols = ['fc', 'sd', 'pso', 'dso']
 

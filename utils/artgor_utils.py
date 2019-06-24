@@ -210,6 +210,7 @@ def train_model_regression(X, X_test, y, params, folds, model_type='lgb', eval_m
     
     # split and train on folds
     for fold_n, (train_index, valid_index) in enumerate(folds.split(X)):
+        gc.collect()
         print(f'Fold {fold_n + 1} started at {time.ctime()}')
         if type(X) == np.ndarray:
             X_train, X_valid = X[columns][train_index], X[columns][valid_index]
@@ -271,6 +272,8 @@ def train_model_regression(X, X_test, y, params, folds, model_type='lgb', eval_m
             feature_importance = pd.concat([feature_importance, fold_importance], axis=0)
 
         result_dict['feature_importance'] = feature_importance
+        result_dict['prediction'] = prediction
+        result_dict['folds_ready'] = fold_n
         if res_filename is not None:
             print("saving results...")
             np.save(res_filename, result_dict)
@@ -302,7 +305,7 @@ def train_model_regression(X, X_test, y, params, folds, model_type='lgb', eval_m
 
 
 def train_model_classification(X, X_test, y, params, folds, model_type='lgb', eval_metric='auc', columns=None, plot_feature_importance=False, model=None,
-                               verbose=10000, early_stopping_rounds=200, n_estimators=50000):
+                               verbose=10000, early_stopping_rounds=200, n_estimators=50000, res_filename=None):
     """
     A function to train a variety of regression models.
     Returns dictionary with oof predictions, test predictions, scores and, if necessary, feature importances.
@@ -399,6 +402,10 @@ def train_model_classification(X, X_test, y, params, folds, model_type='lgb', ev
             fold_importance["importance"] = model.feature_importances_
             fold_importance["fold"] = fold_n + 1
             feature_importance = pd.concat([feature_importance, fold_importance], axis=0)
+
+        if res_filename is not None:
+            print("saving results...")
+            np.save(res_filename, result_dict)
 
     prediction /= folds.n_splits
     
