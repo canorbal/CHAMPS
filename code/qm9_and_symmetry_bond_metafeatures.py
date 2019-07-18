@@ -16,8 +16,8 @@ from utils import train_utils
 
 if __name__== '__main__':
 
-    result_filename = '../results/bonds_symmetry.npy'
-    sub_filename = '../submissions/bonds_symmetry.csv'
+    result_filename = '../results/qm_bonds_symmetry.npy'
+    sub_filename = '../submissions/qm_bonds_symmetry.csv'
     file_folder = '../data'
 
     debug = True
@@ -40,6 +40,8 @@ if __name__== '__main__':
         if os.path.isfile(sub_filename):
             assert False, "Submission file exists!"
 
+    print("reading stat tables...")
+
     train_cols_to_load = train_utils.good_columns[:use_stat_cols] + [
         "molecule_name",
         "scalar_coupling_constant",
@@ -58,12 +60,32 @@ if __name__== '__main__':
         nrows=nrows
     )
 
+    print('reading qm9 info...')
+    qm_info = pd.read_pickle(f'{file_folder}/data.covs.pickle')
+    qm_info = qm_info.drop(['id', 'type', 'scalar_coupling_constant'], axis=1)
+
+    print('merging tables with qm9...')
+    train = pd.merge(
+        train, qm_info, how='left',
+        on=['molecule_name', 'atom_index_0', 'atom_index_1']
+    )
+
+    test = pd.merge(
+        test, qm_info, how='left',
+        on=['molecule_name', 'atom_index_0', 'atom_index_1']
+    )
+
+    del qm_info
+    gc.collect()
+
+    print('reading ase and sym dataframes...')
     train_ase = pd.read_csv(f"{file_folder}/ase_train_feats.csv", nrows=nrows)
     test_ase = pd.read_csv(f"{file_folder}/ase_test_feats.csv", nrows=nrows)
 
     sym_train = pd.read_csv(f"{file_folder}/symmetry_train_feats.csv", nrows=nrows)
     sym_test = pd.read_csv(f"{file_folder}/symmetry_test_feats.csv", nrows=nrows)
 
+    print('processing ase, sym...')
     for df_train, df_test in zip((train_ase, sym_train), (test_ase, sym_test)):
         assert (df_train['atom_index_0'] == train['atom_index_0']).sum() == len(train)
         assert (df_test['atom_index_0'] == test['atom_index_0']).sum() == len(test)
@@ -80,6 +102,7 @@ if __name__== '__main__':
     test = artgor_utils.reduce_mem_usage(test)
     gc.collect()
 
+    print('reading bonds...')
     bonds_train = pd.read_csv(f"{file_folder}/bonds_train.csv", nrows=nrows)
     bonds_test = pd.read_csv(f"{file_folder}/bonds_test.csv", nrows=nrows)
 
@@ -101,6 +124,7 @@ if __name__== '__main__':
     gc.collect()
 
     sub = pd.read_csv(f'{file_folder}/sample_submission.csv', nrows=nrows)
+
 
     sorted_train = train.sort_values([
         "scalar_coupling_constant",
@@ -156,11 +180,11 @@ if __name__== '__main__':
 
     params = {
         'num_leaves': 128,
-        'objective': 'regression',
-        'learning_rate': 0.05,
+        'objective': 'mae',
+        'learning_rate': 0.025,
         "boosting_type": "gbdt",
         "subsample_freq": 1,
-        "subsample": 0.9,
+        "subsample": 0.8,
         "bagging_seed": 11,
         "metric": 'mae',
         'reg_alpha': 0.1302650970728192,

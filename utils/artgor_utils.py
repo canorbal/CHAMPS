@@ -163,8 +163,15 @@ def group_mean_log_mae(y_true, y_pred, types, floor=1e-9):
     return np.log(maes.map(lambda x: max(x, floor))).mean()
     
 
-def train_model_regression(X, X_test, y, params, folds, model_type='lgb', eval_metric='mae', columns=None, plot_feature_importance=False, model=None,
-                               verbose=10000, early_stopping_rounds=200, n_estimators=50000, cat_features=None, res_filename=None):
+def train_model_regression(X, y,
+                           params, folds,
+                           X_test=None,
+                           model_type='lgb',
+                           eval_metric='mae', columns=None,
+                           plot_feature_importance=False, model=None,
+                           verbose=10000, early_stopping_rounds=200,
+                           n_estimators=50000, cat_features=None,
+                           res_filename=None):
     """
     A function to train a variety of regression models.
     Returns dictionary with oof predictions, test predictions, scores and, if necessary, feature importances.
@@ -181,7 +188,8 @@ def train_model_regression(X, X_test, y, params, folds, model_type='lgb', eval_m
     
     """
     columns = X.columns if columns is None else columns
-    X_test = X_test[columns]
+    if X_test:
+        X_test = X_test[columns]
     
     # to set up scoring parameters
     metrics_dict = {'mae': {'lgb_metric_name': 'mae',
@@ -195,14 +203,14 @@ def train_model_regression(X, X_test, y, params, folds, model_type='lgb', eval_m
                         'sklearn_scoring_function': metrics.mean_squared_error}
                     }
 
-    
     result_dict = {}
     
     # out-of-fold predictions on train data
     oof = np.zeros(len(X))
     
     # averaged predictions on train data
-    prediction = np.zeros(len(X_test))
+    if X_test:
+        prediction = np.zeros(len(X_test))
     
     # list of scores on folds
     scores = []
@@ -220,13 +228,14 @@ def train_model_regression(X, X_test, y, params, folds, model_type='lgb', eval_m
             y_train, y_valid = y.iloc[train_index], y.iloc[valid_index]
             
         if model_type == 'lgb':
-            model = lgb.LGBMRegressor(**params, n_estimators = n_estimators, n_jobs = -1)
+            model = lgb.LGBMRegressor(**params, n_estimators = n_estimators)
             model.fit(X_train, y_train, 
                     eval_set=[(X_train, y_train), (X_valid, y_valid)], eval_metric=metrics_dict[eval_metric]['lgb_metric_name'],
                     verbose=verbose, early_stopping_rounds=early_stopping_rounds)
             
             y_pred_valid = model.predict(X_valid)
-            y_pred = model.predict(X_test, num_iteration=model.best_iteration_)
+            if X_test:
+                y_pred = model.predict(X_test, num_iteration=model.best_iteration_)
             
         if model_type == 'xgb':
             train_data = xgb.DMatrix(data=X_train, label=y_train, feature_names=X.columns)
@@ -235,7 +244,8 @@ def train_model_regression(X, X_test, y, params, folds, model_type='lgb', eval_m
             watchlist = [(train_data, 'train'), (valid_data, 'valid_data')]
             model = xgb.train(dtrain=train_data, num_boost_round=20000, evals=watchlist, early_stopping_rounds=200, verbose_eval=verbose, params=params)
             y_pred_valid = model.predict(xgb.DMatrix(X_valid, feature_names=X.columns), ntree_limit=model.best_ntree_limit)
-            y_pred = model.predict(xgb.DMatrix(X_test, feature_names=X.columns), ntree_limit=model.best_ntree_limit)
+            if X_test:
+                y_pred = model.predict(xgb.DMatrix(X_test, feature_names=X.columns), ntree_limit=model.best_ntree_limit)
         
         if model_type == 'sklearn':
             model = model
@@ -245,15 +255,16 @@ def train_model_regression(X, X_test, y, params, folds, model_type='lgb', eval_m
             score = metrics_dict[eval_metric]['sklearn_scoring_function'](y_valid, y_pred_valid)
             print(f'Fold {fold_n}. {eval_metric}: {score:.4f}.')
             print('')
-            
-            y_pred = model.predict(X_test).reshape(-1,)
+            if X_test:
+                y_pred = model.predict(X_test).reshape(-1,)
         
         if model_type == 'cat':
             model = CatBoostRegressor(**params,)
             model.fit(X_train, y_train, eval_set=(X_valid, y_valid), cat_features=cat_features)
 
             y_pred_valid = model.predict(X_valid)
-            y_pred = model.predict(X_test)
+            if X_test:
+                y_pred = model.predict(X_test)
         
         oof[valid_index] = y_pred_valid.reshape(-1,)
         if eval_metric != 'group_mae':
@@ -261,7 +272,10 @@ def train_model_regression(X, X_test, y, params, folds, model_type='lgb', eval_m
         else:
             scores.append(metrics_dict[eval_metric]['scoring_function'](y_valid, y_pred_valid, X_valid['type']))
         print(f"current score {scores[-1]:.5f}")
-        prediction += y_pred    
+        if X_test:
+            prediction += y_pred
+        else:
+            prediction = None
         
         if model_type == 'lgb' and plot_feature_importance:
             # feature importance
@@ -278,7 +292,8 @@ def train_model_regression(X, X_test, y, params, folds, model_type='lgb', eval_m
             print("saving results...")
             np.save(res_filename, result_dict)
 
-    prediction /= folds.n_splits
+    if X_test:
+        prediction /= folds.n_splits
     
     print('CV mean score: {0:.4f}, std: {1:.4f}.'.format(np.mean(scores), np.std(scores)))
     
@@ -303,9 +318,13 @@ def train_model_regression(X, X_test, y, params, folds, model_type='lgb', eval_m
     return result_dict
     
 
-
-def train_model_classification(X, X_test, y, params, folds, model_type='lgb', eval_metric='auc', columns=None, plot_feature_importance=False, model=None,
-                               verbose=10000, early_stopping_rounds=200, n_estimators=50000, res_filename=None):
+def train_model_classification(X, y, params, folds,
+                               X_test=None,
+                               model_type='lgb', eval_metric='auc',
+                               columns=None, plot_feature_importance=False,
+                               model=None, verbose=10000,
+                               early_stopping_rounds=200,
+                               n_estimators=50000, res_filename=None):
     """
     A function to train a variety of regression models.
     Returns dictionary with oof predictions, test predictions, scores and, if necessary, feature importances.
@@ -321,8 +340,9 @@ def train_model_classification(X, X_test, y, params, folds, model_type='lgb', ev
     :params: model - sklearn model, works only for "sklearn" model type
     
     """
-    columns = X.columns if columns == None else columns
-    X_test = X_test[columns]
+    columns = X.columns if columns is None else columns
+    if X_test:
+        X_test = X_test[columns]
     
     # to set up scoring parameters
     metrics_dict = {'auc': {'lgb_metric_name': eval_auc,
@@ -336,7 +356,8 @@ def train_model_classification(X, X_test, y, params, folds, model_type='lgb', ev
     oof = np.zeros((len(X), len(set(y.values))))
     
     # averaged predictions on train data
-    prediction = np.zeros((len(X_test), oof.shape[1]))
+    if X_test:
+        prediction = np.zeros((len(X_test), oof.shape[1]))
     
     # list of scores on folds
     scores = []
@@ -353,13 +374,14 @@ def train_model_classification(X, X_test, y, params, folds, model_type='lgb', ev
             y_train, y_valid = y.iloc[train_index], y.iloc[valid_index]
             
         if model_type == 'lgb':
-            model = lgb.LGBMClassifier(**params, n_estimators=n_estimators, n_jobs = -1)
+            model = lgb.LGBMClassifier(**params, n_estimators=n_estimators)
             model.fit(X_train, y_train, 
                     eval_set=[(X_train, y_train), (X_valid, y_valid)], eval_metric=metrics_dict[eval_metric]['lgb_metric_name'],
                     verbose=verbose, early_stopping_rounds=early_stopping_rounds)
             
             y_pred_valid = model.predict_proba(X_valid)
-            y_pred = model.predict_proba(X_test, num_iteration=model.best_iteration_)
+            if X_test:
+                y_pred = model.predict_proba(X_test, num_iteration=model.best_iteration_)
             
         if model_type == 'xgb':
             train_data = xgb.DMatrix(data=X_train, label=y_train, feature_names=X.columns)
@@ -368,7 +390,8 @@ def train_model_classification(X, X_test, y, params, folds, model_type='lgb', ev
             watchlist = [(train_data, 'train'), (valid_data, 'valid_data')]
             model = xgb.train(dtrain=train_data, num_boost_round=n_estimators, evals=watchlist, early_stopping_rounds=early_stopping_rounds, verbose_eval=verbose, params=params)
             y_pred_valid = model.predict(xgb.DMatrix(X_valid, feature_names=X.columns), ntree_limit=model.best_ntree_limit)
-            y_pred = model.predict(xgb.DMatrix(X_test, feature_names=X.columns), ntree_limit=model.best_ntree_limit)
+            if X_test:
+                y_pred = model.predict(xgb.DMatrix(X_test, feature_names=X.columns), ntree_limit=model.best_ntree_limit)
         
         if model_type == 'sklearn':
             model = model
@@ -378,8 +401,9 @@ def train_model_classification(X, X_test, y, params, folds, model_type='lgb', ev
             score = metrics_dict[eval_metric]['sklearn_scoring_function'](y_valid, y_pred_valid)
             print(f'Fold {fold_n}. {eval_metric}: {score:.4f}.')
             print('')
-            
-            y_pred = model.predict_proba(X_test)
+
+            if X_test:
+                y_pred = model.predict_proba(X_test)
         
         if model_type == 'cat':
             model = CatBoostClassifier(iterations=n_estimators, eval_metric=metrics_dict[eval_metric]['catboost_metric_name'], **params,
@@ -387,13 +411,15 @@ def train_model_classification(X, X_test, y, params, folds, model_type='lgb', ev
             model.fit(X_train, y_train, eval_set=(X_valid, y_valid), cat_features=[], use_best_model=True, verbose=False)
 
             y_pred_valid = model.predict(X_valid)
-            y_pred = model.predict(X_test)
+            if X_test:
+                y_pred = model.predict(X_test)
         
         oof[valid_index] = y_pred_valid
         scores.append(metrics_dict[eval_metric]['sklearn_scoring_function'](y_valid, y_pred_valid[:, 1]))
         print(f"current score {scores[-1]}")
 
-        prediction += y_pred    
+        if X_test:
+            prediction += y_pred
         
         if model_type == 'lgb' and plot_feature_importance:
             # feature importance
@@ -407,13 +433,15 @@ def train_model_classification(X, X_test, y, params, folds, model_type='lgb', ev
             print("saving results...")
             np.save(res_filename, result_dict)
 
-    prediction /= folds.n_splits
+    if X_test:
+        prediction /= folds.n_splits
     
     print('CV mean score: {0:.4f}, std: {1:.4f}.'.format(np.mean(scores), np.std(scores)))
     
     result_dict['oof'] = oof
-    result_dict['prediction'] = prediction
     result_dict['scores'] = scores
+    if X_test:
+        result_dict['prediction'] = prediction
     
     if model_type == 'lgb':
         if plot_feature_importance:

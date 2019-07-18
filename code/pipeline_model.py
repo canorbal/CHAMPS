@@ -14,24 +14,36 @@ from utils import artgor_utils
 from utils import train_utils
 
 
+def map_acsf_info(df, structures, atom_idx):
+    df = pd.merge(df, structures, how='left',
+                  left_on=['molecule_name', f'atom_index_{atom_idx}'],
+                  right_on=['molecule_name', 'atom_index'])
+
+    df = df.drop('atom_index', axis=1)
+    return df
+
+
 if __name__== '__main__':
 
-    result_filename = '../results/bonds_symmetry.npy'
-    sub_filename = '../submissions/bonds_symmetry.csv'
+    sub_filename = '../submissions/pipeline_2.csv'
     file_folder = '../data'
 
     debug = True
 
     if debug:
-        nrows = 100
-        n_estimators = 50
+        nrows = 1000
         n_folds = 3
-        use_stat_cols = 120
+        n_estimators = 50
+        use_stat_cols = 35
+        result_filename = None
+        use_acsf_cols = 35
     else:
+        nrows = None
         n_folds = 10
         n_estimators = 30000
-        use_stat_cols = 120
-        nrows = None
+        use_stat_cols = 35
+        result_filename = '../results/pipeline_2.npy'
+        use_acsf_cols = 35
 
     if not debug:
         if os.path.isfile(result_filename):
@@ -40,7 +52,15 @@ if __name__== '__main__':
         if os.path.isfile(sub_filename):
             assert False, "Submission file exists!"
 
+    print("reading stat tables...")
+
     train_cols_to_load = train_utils.good_columns[:use_stat_cols] + [
+        'dist',
+        'atom_index_1',
+        'atom_index_0',
+        'type',
+        'atom_0',
+        'atom_1',
         "molecule_name",
         "scalar_coupling_constant",
     ]
@@ -51,35 +71,78 @@ if __name__== '__main__':
         nrows=nrows
     )
 
-    test_cols_to_load = train_utils.good_columns[:use_stat_cols] + ["molecule_name"]
+    test_cols_to_load = train_utils.good_columns[:use_stat_cols] + [
+        'dist',
+        'atom_index_1',
+        'atom_index_0',
+        'type',
+        'atom_0',
+        'atom_1',
+        "molecule_name"
+    ]
     test = pd.read_csv(
         f"{file_folder}/test_stat_features.csv",
         usecols=test_cols_to_load,
         nrows=nrows
     )
 
-    train_ase = pd.read_csv(f"{file_folder}/ase_train_feats.csv", nrows=nrows)
-    test_ase = pd.read_csv(f"{file_folder}/ase_test_feats.csv", nrows=nrows)
+    for f in ['type', 'atom_0', 'atom_1']:
+        train[f] = train[f].astype("category")
+        test[f] = test[f].astype("category")
 
-    sym_train = pd.read_csv(f"{file_folder}/symmetry_train_feats.csv", nrows=nrows)
-    sym_test = pd.read_csv(f"{file_folder}/symmetry_test_feats.csv", nrows=nrows)
+    print('reading acsf...')
+    acsf_cols = train_utils.acsf_cols[:use_acsf_cols] + [
+        'molecule_name',
+        'atom_index',
+    ]
 
-    for df_train, df_test in zip((train_ase, sym_train), (test_ase, sym_test)):
-        assert (df_train['atom_index_0'] == train['atom_index_0']).sum() == len(train)
-        assert (df_test['atom_index_0'] == test['atom_index_0']).sum() == len(test)
+    acsf_descr = pd.read_csv(f"{file_folder}/structure_with_acsf.csv", nrows=nrows,
+                             index_col=False, usecols=acsf_cols)
+    acsf_descr = artgor_utils.reduce_mem_usage(acsf_descr)
 
-        repeat_cols = [col for col in df_train if col in train.columns]
-        df_train = df_train.drop(repeat_cols, axis=1)
-        df_test = df_test.drop(repeat_cols, axis=1)
+    print('mapping acsf...')
+    for i in range(2):
+        train = map_acsf_info(train, acsf_descr, i)
+        test = map_acsf_info(test, acsf_descr, i)
 
-        train = pd.concat([train, df_train], axis=1)
-        test = pd.concat([test, df_test], axis=1)
+    useless_cols = train_utils.find_useless_cols(train)
+    train = train.drop(useless_cols, axis=1)
+    test = test.drop(useless_cols, axis=1)
+    print(f'dropped {len(useless_cols)} cols from train...')
 
-    del df_train, df_test, train_ase, test_ase, sym_test, sym_train
+    del acsf_descr, useless_cols
     train = artgor_utils.reduce_mem_usage(train)
     test = artgor_utils.reduce_mem_usage(test)
     gc.collect()
 
+    print('reading ase dataframes...')
+    train_ase = pd.read_csv(f"{file_folder}/ase_train_feats.csv", nrows=nrows)
+    test_ase = pd.read_csv(f"{file_folder}/ase_test_feats.csv", nrows=nrows)
+
+    useless_cols = train_utils.find_useless_cols(train_ase)
+    train_ase.drop(useless_cols, axis=1, inplace=True)
+    test_ase.drop(useless_cols, axis=1, inplace=True)
+    gc.collect()
+
+    print('processing ase...')
+    for df_train, df_test in zip([train_ase], [test_ase]):
+
+        assert (df_train['atom_index_0'] == train['atom_index_0']).sum() == len(train)
+        assert (df_test['atom_index_0'] == test['atom_index_0']).sum() == len(test)
+
+        repeat_cols = [col for col in df_train if col in train.columns]
+        df_train.drop(repeat_cols, axis=1, inplace=True)
+        df_test.drop(repeat_cols, axis=1, inplace=True)
+
+        train = pd.concat([train, df_train], axis=1)
+        test = pd.concat([test, df_test], axis=1)
+
+    del df_train, df_test, train_ase, test_ase
+    train = artgor_utils.reduce_mem_usage(train)
+    test = artgor_utils.reduce_mem_usage(test)
+    gc.collect()
+
+    print('reading bonds...')
     bonds_train = pd.read_csv(f"{file_folder}/bonds_train.csv", nrows=nrows)
     bonds_test = pd.read_csv(f"{file_folder}/bonds_test.csv", nrows=nrows)
 
@@ -87,7 +150,15 @@ if __name__== '__main__':
     assert (bonds_test['atom_index_0'] == test['atom_index_0']).sum() == len(test)
 
     repeat_cols = [col for col in bonds_train.columns if col in train.columns]
-    repeat_cols_train = repeat_cols + ['scalar_coupling_constant', 'fc', 'sd', 'pso', 'dso']
+    repeat_cols_train = repeat_cols + [
+        'scalar_coupling_constant',
+        'fc', 'sd', 'pso', 'dso',
+        'atom_index_x', 'atom_0',
+        'x_0', 'y_0', 'z_0',
+        'atom_index_y', 'atom_1',
+        'x_1', 'y_1', 'z_1',
+    ]
+
     bonds_train = bonds_train.drop(repeat_cols_train, axis=1)
     repeat_cols.remove('scalar_coupling_constant')
     bonds_test = bonds_test.drop(repeat_cols, axis=1)
@@ -98,6 +169,25 @@ if __name__== '__main__':
     del bonds_train, bonds_test, repeat_cols_train, repeat_cols
     train = artgor_utils.reduce_mem_usage(train)
     test = artgor_utils.reduce_mem_usage(test)
+    gc.collect()
+
+    print('reading rdkit...')
+    rd_feats_train = pd.read_csv(f'{file_folder}/rdkit_train_feats.csv', nrows=nrows)
+    rd_feats_test = pd.read_csv(f'{file_folder}/rdkit_test_feats.csv', nrows=nrows)
+    assert (rd_feats_train['atom_index_0'] == train['atom_index_0']).sum() == len(train)
+    assert (rd_feats_test['atom_index_0'] == test['atom_index_0']).sum() == len(test)
+
+    repeat_cols = [col for col in rd_feats_train.columns if col in train.columns]
+    rd_feats_train.drop(repeat_cols, axis=1, inplace=True)
+    rd_feats_test.drop(repeat_cols, axis=1, inplace=True)
+
+    train = pd.concat([train, rd_feats_train], axis=1)
+    test = pd.concat([test, rd_feats_test], axis=1)
+
+    train = artgor_utils.reduce_mem_usage(train)
+    test = artgor_utils.reduce_mem_usage(test)
+
+    del rd_feats_test, rd_feats_train, repeat_cols
     gc.collect()
 
     sub = pd.read_csv(f'{file_folder}/sample_submission.csv', nrows=nrows)
@@ -119,8 +209,9 @@ if __name__== '__main__':
     print("loading oof columns")
     meta_columns = ['fc', 'sd', 'pso', 'dso']
     for oof_col in meta_columns:
-        oof_result = np.load(f'../results/oof_results/{oof_col}_oof_results.npy',
-                             allow_pickle=True)
+        oof_result = np.load(
+            f'../results/oof_results/{oof_col}_oof_results.npy',
+            allow_pickle=True)
         oof_result = oof_result.item()
         if debug:
             sorted_train[oof_col] = oof_result['oof'][:nrows]
@@ -138,7 +229,7 @@ if __name__== '__main__':
     y = sorted_train['scalar_coupling_constant']
     X_test = test.copy()
 
-    del sorted_train
+    del sorted_train, test
     gc.collect()
 
     folds = KFold(n_splits=n_folds, shuffle=True, random_state=0)
@@ -157,10 +248,10 @@ if __name__== '__main__':
     params = {
         'num_leaves': 128,
         'objective': 'regression',
-        'learning_rate': 0.05,
+        'learning_rate': 0.04,
         "boosting_type": "gbdt",
         "subsample_freq": 1,
-        "subsample": 0.9,
+        "subsample": 0.8,
         "bagging_seed": 11,
         "metric": 'mae',
         'reg_alpha': 0.1302650970728192,
@@ -173,6 +264,10 @@ if __name__== '__main__':
     X = artgor_utils.reduce_mem_usage(X)
     X_test = artgor_utils.reduce_mem_usage(X_test)
     gc.collect()
+
+    if debug:
+        print('saving debug data...')
+        X.to_csv("../data/debug_data/debug_acsf.csv", index=False)
 
     print("training models...")
     result_dict_lgb = artgor_utils.train_model_regression(X=X, X_test=X_test,

@@ -20,140 +20,44 @@ from utils import artgor_utils
 
 from utils.train_utils import create_features_full, map_atom_info
 
-good_columns = [
-    'molecule_atom_index_0_dist_min',
-    'molecule_atom_index_0_dist_max',
-    'molecule_atom_index_0_dist_mean',
-    'molecule_atom_index_0_dist_std',
-
-    'molecule_atom_index_1_dist_min',
-    'molecule_atom_index_1_dist_max',
-    'molecule_atom_index_1_dist_mean',
-    'molecule_atom_index_1_dist_std',
-
-    'dist',
-
-    'molecule_atom_index_0_dist_max_diff',
-    'molecule_atom_index_0_dist_std_diff',
-    'molecule_atom_index_0_dist_mean_diff',
-    'molecule_atom_index_0_dist_min_diff',
-
-    'molecule_atom_index_1_dist_max_diff',
-    'molecule_atom_index_1_dist_mean_diff',
-    'molecule_atom_index_1_dist_std_diff',
-    'molecule_atom_index_1_dist_min_diff',
-
-    'molecule_atom_index_0_dist_max_div',
-    'molecule_atom_index_0_dist_std_div',
-    'molecule_atom_index_0_dist_min_div',
-    'molecule_atom_index_0_dist_mean_div',
-
-    'molecule_atom_index_1_dist_max_div',
-    'molecule_atom_index_1_dist_std_div',
-    'molecule_atom_index_1_dist_min_div',
-    'molecule_atom_index_1_dist_mean_div',
-
-    'atom_0_couples_count',
-    'atom_1_couples_count',
-
-    'atom_index_0',
-    'atom_index_1',
-
-    'molecule_couples',
-    'molecule_dist_mean',
-
-    'molecule_atom_index_0_x_1_std',
-    'molecule_atom_index_0_y_1_std',
-    'molecule_atom_index_0_z_1_std',
-
-    'molecule_atom_index_1_x_1_std',
-    'molecule_atom_index_1_y_1_std',
-    'molecule_atom_index_1_z_1_std',
-
-    'x_0',
-    'y_0',
-    'z_0',
-
-    'x_1',
-    'y_1',
-    'z_1',
-
-    'molecule_atom_index_0_x_1_max_diff',
-    'molecule_atom_index_0_y_1_max_diff',
-    'molecule_atom_index_0_z_1_max_diff',
-
-    'molecule_atom_index_1_x_1_max_diff',
-    'molecule_atom_index_1_y_1_max_diff',
-    'molecule_atom_index_1_z_1_max_diff',
-
-    'molecule_atom_index_0_x_1_mean_div',
-    'molecule_atom_index_0_y_1_mean_div',
-    'molecule_atom_index_0_z_1_mean_div',
-
-    'molecule_atom_index_1_x_1_mean_div',
-    'molecule_atom_index_1_y_1_mean_div',
-    'molecule_atom_index_1_z_1_mean_div',
-
-    'molecule_atom_index_0_x_1_mean_diff',
-    'molecule_atom_index_0_y_1_mean_diff',
-    'molecule_atom_index_0_z_1_mean_diff',
-
-    'molecule_atom_index_1_x_1_mean_diff',
-    'molecule_atom_index_1_y_1_mean_diff',
-    'molecule_atom_index_1_z_1_mean_diff',
-
-    'molecule_atom_0_dist_min_diff',
-    'molecule_atom_1_dist_min_diff',
-
-
-    'molecule_type_dist_std_diff',
-    'molecule_dist_min',
-
-
-    'molecule_type_dist_min',
-    'molecule_atom_1_dist_min_div',
-    'molecule_dist_max',
-    'molecule_atom_1_dist_std_diff',
-    'molecule_type_dist_max',
-
-
-    'molecule_type_0_dist_std_diff',
-    'molecule_type_dist_mean_diff',
-    'molecule_type_dist_mean_div',
-    'type'
-]
-
 
 if __name__== '__main__':
 
-    result_filename = '../results/work_on_features.npy'
     sub_filename = '../submissions/work_on_features.csv'
 
-    if os.path.isfile(result_filename):
-        assert False, "Result file exists!"
+    debug = False
 
-    if os.path.isfile(sub_filename):
-        assert False, "Submission file exists!"
+    if debug:
+        nrows = 100
+        n_estimators = 50
+        n_folds = 3
+        use_stat_cols = 120
+        result_filename = None
+    else:
+        result_filename = '../results/work_on_features.npy'
+        n_folds = 10
+        n_estimators = 2000
+        use_stat_cols = 120
+        nrows = No
 
+    if not debug:
+        if os.path.isfile(result_filename):
+            assert False, "Result file exists!"
+
+        if os.path.isfile(sub_filename):
+            assert False, "Submission file exists!"
 
     print("reading data...")
-    train = pd.read_csv('../data/train.csv')
-    test = pd.read_csv('../data/test.csv')
-    structures = pd.read_csv('../data/structures.csv')
-    sub = pd.read_csv('../data/sample_submission.csv')
+    train = pd.read_csv('../data/train.csv', nrows=nrows)
+    test = pd.read_csv('../data/test.csv', nrows=nrows)
+    structures = pd.read_csv('../data/structures.csv', nrows=nrows)
+    sub = pd.read_csv('../data/sample_submission.csv', nrows=nrows)
 
-    print("mapping info about atoms...")
+    train = map_atom_info(train, structures, 0)
+    train = map_atom_info(train, structures, 1)
 
-    debug = False
-    if debug:
-        train = train[:100]
-        test = test[:100]
-
-    train = map_atom_info(train, 0)
-    train = map_atom_info(train, 1)
-
-    test = map_atom_info(test, 0)
-    test = map_atom_info(test, 1)
+    test = map_atom_info(test, structures, 0)
+    test = map_atom_info(test, structures, 1)
 
     train_p_0 = train[['x_0', 'y_0', 'z_0']].values
     train_p_1 = train[['x_1', 'y_1', 'z_1']].values
@@ -175,24 +79,28 @@ if __name__== '__main__':
     train = create_features_full(train)
     test = create_features_full(test)
 
+    if not debug:
+        train.to_csv("../data/train_stat_features.csv", index=False)
+        test.to_csv("../data/test_stat_features.csv", index=False)
+
     print("label encoding...")
     for f in ['atom_0', 'atom_1', 'type']:
-            lbl = LabelEncoder()
-            lbl.fit(list(train[f].values) + list(test[f].values))
-            train[f] = lbl.transform(list(train[f].values))
-            test[f] = lbl.transform(list(test[f].values))
+        lbl = LabelEncoder()
+        lbl.fit(list(train[f].values) + list(test[f].values))
+        train[f] = lbl.transform(list(train[f].values))
+        test[f] = lbl.transform(list(test[f].values))
 
     print("creating folds...")
-    n_folds = 10
+    n_folds = 5
     sorted_train = train.sort_values([
         "scalar_coupling_constant",
-         "type",
-         "dist",
+        "type",
+        "dist",
     ])
 
     print("train shape ", train.shape)
     sorted_train.index = range(0, len(sorted_train))
-    folds = KFold(n_splits=10, shuffle=True, random_state=0)
+    folds = KFold(n_splits=n_folds, shuffle=True, random_state=0)
 
     X = sorted_train.drop(['id', 'molecule_name', 'scalar_coupling_constant'], axis=1)
     y = sorted_train['scalar_coupling_constant']
@@ -201,16 +109,16 @@ if __name__== '__main__':
     params = {
         'num_leaves': 128,
         'objective': 'regression',
-        'learning_rate': 0.075,
+        'learning_rate': 0.1,
         "boosting_type": "gbdt",
         "subsample_freq": 1,
-        "subsample": 0.9,
+        "subsample": 0.7,
         "bagging_seed": 11,
         "metric": 'mae',
         "verbosity": -1,
         'reg_alpha': 0.1302650970728192,
         'reg_lambda': 0.3603427518866501,
-        'colsample_bytree': 1.,
+        'colsample_bytree': 0.8,
         'device': 'gpu',
         'gpu_device_id': 0
     }
@@ -225,13 +133,14 @@ if __name__== '__main__':
                                                           plot_feature_importance=True,
                                                           verbose=100,
                                                           early_stopping_rounds=1000,
-                                                          n_estimators=30000,
+                                                          n_estimators=n_estimators,
                                                           res_filename=result_filename
                                                           )
 
-    print("saving results...")
-    np.save(result_filename, result_dict_lgb)
+    if not debug:
+        print("saving results...")
+        np.save(result_filename, result_dict_lgb)
 
-    print("making submission...")
-    sub['scalar_coupling_constant'] = result_dict_lgb['prediction']
-    sub.to_csv(sub_filename, index=False)
+        print("making submission...")
+        sub['scalar_coupling_constant'] = result_dict_lgb['prediction']
+        sub.to_csv(sub_filename, index=False)

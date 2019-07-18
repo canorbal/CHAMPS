@@ -6,14 +6,9 @@ import ase.io
 from ase.calculators.emt import EMT
 from ase.eos import calculate_eos
 from tqdm import tqdm
+import csv
 
 good_columns = [
-    'atom_index_1',
-    'atom_index_0',
-    'type',
-    'atom_0',
-    'atom_1',
-
     'molecule_atom_index_0_dist_min',
     'molecule_atom_index_0_dist_max',
     'molecule_atom_index_0_dist_std',
@@ -59,7 +54,6 @@ good_columns = [
     'molecule_atom_index_0_dist_y_mean',
     'molecule_atom_index_0_dist_y_mean_diff',
     'molecule_atom_index_0_dist_min_diff',
-    'dist',
     'molecule_type_dist_max',
     'molecule_dist_mean',
     'molecule_atom_0_dist_mean_diff',
@@ -214,6 +208,127 @@ good_columns = [
     'molecule_atom_1_dist_z_max_diff',
 ]
 
+acsf_cols = [
+    'feat_acsf_g4_C_C_[1, 4, 1]',
+    'feat_acsf_g4_O_C_[1, 4, 1]',
+    'feat_acsf_g4_C_H_[1, 4, 1]',
+    'feat_acsf_g2_O_[1, 2]',
+    'feat_acsf_g4_C_C_[0.01, 4, 1]',
+    'feat_acsf_g2_C_[1, 2]',
+    'feat_acsf_g4_C_H_[1, 4, -1]',
+    'feat_acsf_g4_N_C_[1, 4, 1]',
+    'feat_acsf_g4_C_C_[1, 4, -1]',
+    'feat_acsf_g2_O_[1, 6]',
+    'feat_acsf_g4_O_C_[0.1, 4, 1]',
+    'feat_acsf_g4_C_H_[0.1, 4, -1]',
+    'feat_acsf_g4_C_C_[0.1, 4, 1]',
+    'feat_acsf_g4_C_C_[0.1, 4, -1]',
+    'feat_acsf_g4_H_H_[0.1, 4, -1]',
+    'feat_acsf_g4_O_H_[0.1, 4, 1]',
+    'feat_acsf_g4_H_H_[1, 4, 1]',
+    'feat_acsf_g2_H_[1, 2]',
+    'feat_acsf_g2_C_[1, 6]',
+    'feat_acsf_g4_O_C_[0.1, 4, -1]',
+    'feat_acsf_g4_O_H_[1, 4, 1]',
+    'feat_acsf_g4_O_C_[0.01, 4, 1]',
+    'feat_acsf_g4_O_H_[0.1, 4, -1]',
+    'feat_acsf_g4_O_H_[0.01, 4, 1]',
+    'feat_acsf_g4_C_C_[0.01, 4, -1]',
+    'feat_acsf_g2_N_[1, 2]',
+    'feat_acsf_g4_H_H_[0.01, 4, 1]',
+    'feat_acsf_g4_C_H_[0.01, 4, 1]',
+    'feat_acsf_g4_O_O_[0.1, 4, 1]',
+    'feat_acsf_g2_H_[1, 6]',
+    'feat_acsf_g4_O_C_[0.01, 4, -1]',
+    'feat_acsf_g4_N_H_[0.1, 4, 1]',
+    'feat_acsf_g4_N_H_[1, 4, 1]',
+    'feat_acsf_g4_H_H_[0.1, 4, 1]',
+    'feat_acsf_g2_O_[0.1, 6]',
+    'feat_acsf_g2_H_[0.1, 6]',
+    'feat_acsf_g4_O_O_[0.1, 4, -1]',
+    'feat_acsf_g4_H_H_[0.01, 4, -1]',
+    'feat_acsf_g4_N_C_[0.1, 4, 1]',
+    'feat_acsf_g4_C_H_[0.01, 4, -1]',
+    'feat_acsf_g4_O_O_[0.01, 4, -1]',
+    'feat_acsf_g4_O_N_[0.1, 4, 1]',
+    'feat_acsf_g2_C_[0.1, 6]',
+    'feat_acsf_g4_H_H_[1, 4, -1]',
+    'feat_acsf_g4_C_H_[0.1, 4, 1]',
+    'feat_acsf_g4_O_H_[0.01, 4, -1]',
+    'feat_acsf_g4_O_O_[0.01, 4, 1]',
+    'feat_acsf_g4_N_C_[0.1, 4, -1]',
+    'feat_acsf_g2_N_[1, 6]',
+    'feat_acsf_g4_O_C_[1, 4, -1]',
+    'feat_acsf_g2_O_[0.1, 2]',
+    'feat_acsf_g4_N_H_[0.01, 4, 1]',
+    'feat_acsf_g2_O_[0.01, 6]',
+    'feat_acsf_g4_N_H_[0.1, 4, -1]',
+    'feat_acsf_g2_C_[0.1, 2]',
+    'feat_acsf_g2_C_[0.01, 6]',
+    'feat_acsf_g4_N_C_[0.01, 4, 1]',
+    'feat_acsf_g4_N_C_[1, 4, -1]',
+    'feat_acsf_g2_H_[0.1, 2]',
+    'feat_acsf_g2_N_[0.1, 6]',
+    'feat_acsf_g4_O_N_[0.01, 4, 1]',
+    'feat_acsf_g4_O_N_[0.1, 4, -1]',
+    'feat_acsf_g4_N_C_[0.01, 4, -1]',
+    'feat_acsf_g4_O_H_[1, 4, -1]',
+    'feat_acsf_g4_N_N_[0.1, 4, 1]',
+    'feat_acsf_g4_N_H_[0.01, 4, -1]',
+    'feat_acsf_g4_O_N_[0.01, 4, -1]',
+    'feat_acsf_g4_N_H_[1, 4, -1]',
+    'feat_acsf_g2_H_[0.01, 6]',
+    'feat_acsf_g4_N_N_[0.1, 4, -1]',
+    'feat_acsf_g1_O_10.0',
+    'feat_acsf_g2_O_[0.01, 2]',
+    'feat_acsf_g1_C_10.0',
+    'feat_acsf_g4_N_N_[0.01, 4, -1]',
+    'feat_acsf_g4_N_N_[0.01, 4, 1]',
+    'feat_acsf_g2_N_[0.1, 2]',
+    'feat_acsf_g2_C_[0.01, 2]',
+    'feat_acsf_g2_N_[0.01, 6]',
+    'feat_acsf_g1_H_10.0',
+    'feat_acsf_g2_H_[0.01, 2]',
+    'feat_acsf_g1_N_10.0',
+    'feat_acsf_g2_N_[0.01, 2]',
+    'feat_acsf_g4_N_N_[1, 4, 1]',
+    'feat_acsf_g4_O_N_[1, 4, 1]',
+    'feat_acsf_g4_O_N_[1, 4, -1]',
+    'feat_acsf_g4_N_N_[1, 4, -1]',
+    'feat_acsf_g4_O_O_[1, 4, 1]',
+    'feat_acsf_g4_O_O_[1, 4, -1]',
+    'feat_acsf_g4_F_C_[0.1, 4, 1]',
+    'feat_acsf_g4_F_C_[1, 4, 1]',
+    'feat_acsf_g2_F_[1, 6]',
+    'feat_acsf_g4_F_H_[0.01, 4, 1]',
+    'feat_acsf_g4_F_C_[0.01, 4, 1]',
+    'feat_acsf_g4_F_N_[0.1, 4, 1]',
+    'feat_acsf_g4_F_C_[0.1, 4, -1]',
+    'feat_acsf_g4_F_H_[0.1, 4, 1]',
+    'feat_acsf_g2_F_[0.1, 6]',
+    'feat_acsf_g4_F_C_[1, 4, -1]',
+    'feat_acsf_g4_F_O_[0.1, 4, 1]',
+    'feat_acsf_g4_F_N_[0.01, 4, -1]',
+    'feat_acsf_g4_F_N_[0.1, 4, -1]',
+    'feat_acsf_g2_F_[0.1, 2]',
+    'feat_acsf_g4_F_N_[0.01, 4, 1]',
+    'feat_acsf_g4_F_H_[0.1, 4, -1]',
+    'feat_acsf_g4_F_C_[0.01, 4, -1]',
+    'feat_acsf_g4_F_H_[0.01, 4, -1]',
+    'feat_acsf_g2_F_[1, 2]',
+    'feat_acsf_g4_F_O_[0.01, 4, 1]',
+    'feat_acsf_g4_F_F_[0.1, 4, 1]',
+    'feat_acsf_g4_F_F_[0.1, 4, -1]',
+    'feat_acsf_g4_F_F_[0.01, 4, 1]',
+    'feat_acsf_g1_F_10.0',
+    'feat_acsf_g4_F_O_[0.1, 4, -1]',
+]
+
+
+def concat_dataframes(a, b):
+    cols_to_add = [col for col in b.columns if col not in a]
+    return pd.concat([a, b[cols_to_add]], axis=1)
+
 
 def map_atom_info(df, structures, atom_idx):
     df = pd.merge(df, structures, how='left',
@@ -242,10 +357,6 @@ def oof_features(df):
 
     cat_cols = ['type', 'atom_index_0', 'atom_index_1']
     aggs = ['mean', 'max', 'std', 'min']
-
-    for col in cat_cols:
-        df[f'molecule_{col}_count'] = df.groupby('molecule_name')[
-            col].transform('count')
 
     for cat_col in cat_cols:
         for num_col in num_cols:
@@ -421,56 +532,79 @@ def create_features(df):
     return df
 
 
-def process_ase_df(df):
-    res_list = []
-    k_top = 4
+def process_ase_df(df, filename):
+    k_top = 7
     previous_molecule = None
     failed_force = 0
 
-    for count_rows, row in tqdm(df.iterrows(), total=len(df)):
-        results = {}
-        ids_list = []
-        molecule_name = row['molecule_name']
-        results['molecule_name'] = molecule_name
+    with open(filename, 'w') as f:
 
-        if previous_molecule is None or previous_molecule != molecule_name:
-            file_name = f'../data/structures_dir/{molecule_name}.xyz'
-            atoms = ase.io.read(file_name)
-            atoms.set_calculator(EMT())
+        for count_rows, row in tqdm(df.iterrows(), total=len(df)):
+            results = {}
+            molecule_name = row['molecule_name']
+            results['molecule_name'] = molecule_name
 
-        for atom_ind in range(2):
-            results[f'atom_index_{atom_ind}'] = row[f'atom_index_{atom_ind}']
+            if previous_molecule is None or previous_molecule != molecule_name:
+                file_name = f'../data/structures_dir/{molecule_name}.xyz'
+                atoms = ase.io.read(file_name)
+                atoms.set_calculator(EMT())
 
-            distances = atoms.get_distances(row[f'atom_index_{atom_ind}'],
-                                            range(len(atoms)))
-            try:
-                forces = atoms.get_forces()[row[f'atom_index_{atom_ind}']]
-            except Exception:
-                forces = np.array([np.NaN] * 3)
-                failed_force += 1
+            for atom_ind in range(2):
+                results[f'atom_index_{atom_ind}'] = row[f'atom_index_{atom_ind}']
 
-            for i, dim_name in enumerate(['x', 'y', 'z']):
-                results[f'atom_index_{atom_ind}_force_{dim_name}'] = forces[i]
+                distances = atoms.get_distances(row[f'atom_index_{atom_ind}'],
+                                                range(len(atoms)))
+                distances = distances.astype(np.float16)
+                inv_distances = 1. / distances
+                inv_2_distances = 1. / (distances**2)
+                try:
+                    forces = atoms.get_forces()[row[f'atom_index_{atom_ind}']]
+                except Exception:
+                    forces = np.array([np.NaN] * 3)
+                    failed_force += 1
 
-            idx = np.argsort(distances)[1:k_top]
-            for i in range(len(idx)):
-                prefix = f'atom_index_{atom_ind}_nbhd_{i}'
-                results[prefix + '_dist'] = distances[idx[i]]
-                results[prefix + '_atom'] = atoms[idx[i]].number
+                for i, dim_name in enumerate(['x', 'y', 'z']):
+                    results[f'atom_index_{atom_ind}_force_{dim_name}'] = np.float16(forces[i])
 
-            ids_list.append(idx)
+                idx = np.argsort(distances)[1:k_top]
 
-        angle1 = atoms.get_angle(ids_list[0][0], row['atom_index_0'],
-                                 row['atom_index_1'])
-        angle2 = atoms.get_angle(ids_list[1][0], row['atom_index_1'],
-                                 row['atom_index_0'])
-        results['angle_1'] = angle1
-        results['angle_2'] = angle2
-        res_list.append(results)
-        previous_molecule = molecule_name
+                for i in range(k_top):
+                    prefix = f'atom_index_{atom_ind}_nbhd_{i}'
+                    if i < len(idx):
+                        results[prefix + '_dist'] = distances[idx[i]]
+                        results[prefix + '_1_div_dist'] = inv_distances[idx[i]]
+                        results[prefix + '_1_div_dist^2'] = inv_2_distances[idx[i]]
+
+                        for j in range(len(idx)):
+                            if i != j:
+                                results[prefix + '_angle'] = np.float16(atoms.get_angle(
+                                    idx[i], row[f'atom_index_{atom_ind}'], idx[j]
+                                ))
+
+                                results[prefix + '_cos_angle'] = np.float16(np.cos(results[prefix + '_angle']))
+                                results[prefix + '_sin_angle'] = np.float16(np.sin(results[prefix + '_angle']))
+                    else:
+                        results[prefix + '_dist'] = np.NaN
+                        results[prefix + '_1_div_dist'] = np.NaN
+                        results[prefix + '_1_div_dist^2'] = np.NaN
+
+                        for j in range(len(idx)):
+                            if i != j:
+                                results[prefix + '_angle'] = np.NaN
+
+                                results[prefix + '_cos_angle'] = np.NaN
+                                results[prefix + '_sin_angle'] = np.NaN
+
+            if count_rows == 0:
+                writer = csv.DictWriter(f, fieldnames=results.keys())
+                writer.writeheader()
+                writer.writerow(results)
+            else:
+                writer.writerow(results)
+
+            previous_molecule = molecule_name
 
     print(f"Failed to evaluate force on {failed_force} pairs")
-    return pd.DataFrame(res_list)
 
 
 def process_symmetry(df):

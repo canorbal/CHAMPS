@@ -29,7 +29,7 @@ if __name__== '__main__':
     sub_filename = '../submissions/acsf_descr.csv'
     file_folder = '../data'
 
-    debug = False
+    debug = True
 
     if debug:
         nrows = 100
@@ -227,6 +227,8 @@ if __name__== '__main__':
     X_test = artgor_utils.reduce_mem_usage(X_test)
     gc.collect()
 
+    if debug:
+        X.to_csv("../data/debug_acsf.csv", index=False)
     print("training models...")
     result_dict_lgb = artgor_utils.train_model_regression(X=X, X_test=X_test,
                                                           y=y,

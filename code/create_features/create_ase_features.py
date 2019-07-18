@@ -24,8 +24,5 @@ if __name__ == '__main__':
         train = train[:100]
         test = test[:100]
 
-    ase_train = process_ase_df(train)
-    ase_train.to_csv("../data/ase_train_feats.csv", index=False)
-
-    ase_test = process_ase_df(test)
-    ase_test.to_csv("../data/ase_test_feats.csv", index=False)
+    ase_train = process_ase_df(train, "../data/new_ase_train_feats.csv")
+    ase_test = process_ase_df(test, "../data/new_ase_test_feats.csv")

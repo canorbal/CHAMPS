@@ -14,13 +14,22 @@ from utils import artgor_utils
 from utils import train_utils
 
 
+def map_acsf_info(df, structures, atom_idx):
+    df = pd.merge(df, structures, how='left',
+                  left_on=['molecule_name', f'atom_index_{atom_idx}'],
+                  right_on=['molecule_name', 'atom_index'])
+
+    df = df.drop('atom_index', axis=1)
+    return df
+
+
 if __name__== '__main__':
 
-    result_filename = '../results/bonds_symmetry.npy'
-    sub_filename = '../submissions/bonds_symmetry.csv'
+    result_filename = '../results/90k_iters_pair_acsf_descr.npy'
+    sub_filename = '../submissions/90k_iters_pair_acsf_descr.csv'
     file_folder = '../data'
 
-    debug = True
+    debug = False
 
     if debug:
         nrows = 100
@@ -28,8 +37,8 @@ if __name__== '__main__':
         n_folds = 3
         use_stat_cols = 120
     else:
-        n_folds = 10
-        n_estimators = 30000
+        n_folds = 5
+        n_estimators = 50000
         use_stat_cols = 120
         nrows = None
 
@@ -39,6 +48,8 @@ if __name__== '__main__':
 
         if os.path.isfile(sub_filename):
             assert False, "Submission file exists!"
+
+    print("reading stat tables...")
 
     train_cols_to_load = train_utils.good_columns[:use_stat_cols] + [
         "molecule_name",
@@ -58,13 +69,54 @@ if __name__== '__main__':
         nrows=nrows
     )
 
+    print('reading acsf...')
+    acsf_descr = pd.read_csv(f"{file_folder}/structure_with_acsf.csv", nrows=nrows, index_col=0)
+    acsf_descr = acsf_descr.drop(['x', 'y', 'z', 'atom'], axis=1)
+    useless_cols = train_utils.find_useless_cols(acsf_descr)
+    acsf_descr = acsf_descr.drop(useless_cols, axis=1)
+    gc.collect()
+    acsf_descr = artgor_utils.reduce_mem_usage(acsf_descr)
+
+    print('mapping acsf...')
+    for i in range(2):
+        train = map_acsf_info(train, acsf_descr, i)
+        test = map_acsf_info(test, acsf_descr, i)
+
+    useless_cols = train_utils.find_useless_cols(train)
+    for i in range(2):
+        if f'atom_{i}' in useless_cols:
+            useless_cols.remove(f'atom_{i}')
+
+    print(useless_cols)
+    train = train.drop(useless_cols, axis=1)
+    test = test.drop(useless_cols, axis=1)
+    print(f'dropped {len(useless_cols)} cols from acsf...')
+
+    drop_cols = []
+    for col in train.columns:
+        if '_x' in col:
+            col = col[:-2]
+            if col in acsf_descr:
+                train[f'diff_{col}'] = train[col + '_x'] - train[col + '_y']
+                test[f'diff_{col}'] = test[col + '_x'] - test[col + '_y']
+                drop_cols.append(col + '_x')
+                drop_cols.append(col + '_y')
+
+    print(f'diff drop len {len(drop_cols)}')
+    train = train.drop(drop_cols, axis=1)
+    test = test.drop(drop_cols, axis=1)
+
+    del acsf_descr, drop_cols, useless_cols
+    train = artgor_utils.reduce_mem_usage(train)
+    test = artgor_utils.reduce_mem_usage(test)
+    gc.collect()
+
+    print('reading ase and sym dataframes...')
     train_ase = pd.read_csv(f"{file_folder}/ase_train_feats.csv", nrows=nrows)
     test_ase = pd.read_csv(f"{file_folder}/ase_test_feats.csv", nrows=nrows)
 
-    sym_train = pd.read_csv(f"{file_folder}/symmetry_train_feats.csv", nrows=nrows)
-    sym_test = pd.read_csv(f"{file_folder}/symmetry_test_feats.csv", nrows=nrows)
-
-    for df_train, df_test in zip((train_ase, sym_train), (test_ase, sym_test)):
+    print('processing ase...')
+    for df_train, df_test in zip([train_ase], [test_ase]):
         assert (df_train['atom_index_0'] == train['atom_index_0']).sum() == len(train)
         assert (df_test['atom_index_0'] == test['atom_index_0']).sum() == len(test)
 
@@ -75,11 +127,12 @@ if __name__== '__main__':
         train = pd.concat([train, df_train], axis=1)
         test = pd.concat([test, df_test], axis=1)
 
-    del df_train, df_test, train_ase, test_ase, sym_test, sym_train
+    del df_train, df_test, train_ase, test_ase
     train = artgor_utils.reduce_mem_usage(train)
     test = artgor_utils.reduce_mem_usage(test)
     gc.collect()
 
+    print('reading bonds...')
     bonds_train = pd.read_csv(f"{file_folder}/bonds_train.csv", nrows=nrows)
     bonds_test = pd.read_csv(f"{file_folder}/bonds_test.csv", nrows=nrows)
 
@@ -152,20 +205,38 @@ if __name__== '__main__':
     X = X.drop('molecule_name', axis=1)
     X_test = X_test.drop('molecule_name', axis=1)
 
+    print('X.shape ', X.shape)
+    print('pairing features')
+    cols_to_drop = []
+    for col_0 in X.columns:
+        if '_atom_index_0_' in col_0:
+            col_1 = col_0.replace('_atom_index_0_', '_atom_index_1_')
+            if col_1 in X.columns:
+                cols_to_drop.append(col_0)
+                cols_to_drop.append(col_1)
+                for df in [X, X_test]:
+                    df[f'diff_{col_0}_{col_1}'] = df[col_0] - df[col_1]
+                    df[f'sum_{col_0}_{col_1}'] = df[col_0] + df[col_1]
+
+                X.drop([col_0, col_1], axis=1, inplace=True)
+                X_test.drop([col_0, col_1], axis=1, inplace=True)
+
+    gc.collect()
+
     print("final shape: ", X.shape)
 
     params = {
         'num_leaves': 128,
         'objective': 'regression',
-        'learning_rate': 0.05,
+        'learning_rate': 0.08,
         "boosting_type": "gbdt",
         "subsample_freq": 1,
-        "subsample": 0.9,
+        "subsample": 0.6,
         "bagging_seed": 11,
         "metric": 'mae',
         'reg_alpha': 0.1302650970728192,
         'reg_lambda': 0.3603427518866501,
-        'colsample_bytree': 0.9,
+        'colsample_bytree': 0.8,
         'device': 'gpu',
         'gpu_device_id': 0
     }
@@ -174,6 +245,8 @@ if __name__== '__main__':
     X_test = artgor_utils.reduce_mem_usage(X_test)
     gc.collect()
 
+    if debug:
+        X.to_csv("../data/debug_acsf.csv", index=False)
     print("training models...")
     result_dict_lgb = artgor_utils.train_model_regression(X=X, X_test=X_test,
                                                           y=y,
