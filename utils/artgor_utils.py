@@ -168,10 +168,9 @@ def train_model_regression(X, y,
                            X_test=None,
                            model_type='lgb',
                            eval_metric='mae', columns=None,
-                           plot_feature_importance=False, model=None,
                            verbose=10000, early_stopping_rounds=200,
                            n_estimators=50000, cat_features=None,
-                           res_filename=None):
+                           res_filename=None, return_models_list=False):
     """
     A function to train a variety of regression models.
     Returns dictionary with oof predictions, test predictions, scores and, if necessary, feature importances.
@@ -183,33 +182,39 @@ def train_model_regression(X, y,
     :params: model_type - type of model to use
     :params: eval_metric - metric to use
     :params: columns - columns to use. If None - use all columns
-    :params: plot_feature_importance - whether to plot feature importance of LGB
-    :params: model - sklearn model, works only for "sklearn" model type
     
     """
     columns = X.columns if columns is None else columns
-    if X_test:
+
+    if X_test is not None:
         X_test = X_test[columns]
     
     # to set up scoring parameters
-    metrics_dict = {'mae': {'lgb_metric_name': 'mae',
-                        'catboost_metric_name': 'MAE',
-                        'sklearn_scoring_function': metrics.mean_absolute_error},
-                    'group_mae': {'lgb_metric_name': 'mae',
-                        'catboost_metric_name': 'MAE',
-                        'scoring_function': group_mean_log_mae},
-                    'mse': {'lgb_metric_name': 'mse',
-                        'catboost_metric_name': 'MSE',
-                        'sklearn_scoring_function': metrics.mean_squared_error}
-                    }
+    metrics_dict = {
+        'mae': {
+                'lgb_metric_name': 'mae',
+                'catboost_metric_name': 'MAE',
+                'sklearn_scoring_function': metrics.mean_absolute_error
+        },
+        'group_mae': {
+            'lgb_metric_name': 'mae',
+            'catboost_metric_name': 'MAE',
+            'scoring_function': group_mean_log_mae
+        },
+        'mse': {
+            'lgb_metric_name': 'mse',
+            'catboost_metric_name': 'MSE',
+            'sklearn_scoring_function': metrics.mean_squared_error
+        }
+    }
 
     result_dict = {}
-    
+
     # out-of-fold predictions on train data
     oof = np.zeros(len(X))
     
     # averaged predictions on train data
-    if X_test:
+    if X_test is not None:
         prediction = np.zeros(len(X_test))
     
     # list of scores on folds
@@ -229,14 +234,31 @@ def train_model_regression(X, y,
             
         if model_type == 'lgb':
             model = lgb.LGBMRegressor(**params, n_estimators = n_estimators)
-            model.fit(X_train, y_train, 
-                    eval_set=[(X_train, y_train), (X_valid, y_valid)], eval_metric=metrics_dict[eval_metric]['lgb_metric_name'],
-                    verbose=verbose, early_stopping_rounds=early_stopping_rounds)
+            model.fit(
+                X_train, y_train,
+                eval_set=[(X_train, y_train), (X_valid, y_valid)],
+                eval_metric=metrics_dict[eval_metric]['lgb_metric_name'],
+                verbose=verbose, early_stopping_rounds=early_stopping_rounds
+            )
             
             y_pred_valid = model.predict(X_valid)
-            if X_test:
-                y_pred = model.predict(X_test, num_iteration=model.best_iteration_)
-            
+            if X_test is not None:
+                print('test prediction...')
+                if X_test.shape[0] > 10**6 and X_test.shape[1] > 200:
+                    step = 10**5
+                    y_pred = np.zeros(len(X_test))
+
+                    for i in range(0, len(X_test), step):
+                        print(f'test fold {i}')
+                        start = i
+                        finish = i + step
+                        batch_pred = model.predict(X_test[start:finish], num_iteration=model.best_iteration_)
+                        y_pred[start:finish] = batch_pred
+
+                    assert len(y_pred) == len(X_test)
+                else:
+                    y_pred = model.predict(X_test, num_iteration=model.best_iteration_)
+
         if model_type == 'xgb':
             train_data = xgb.DMatrix(data=X_train, label=y_train, feature_names=X.columns)
             valid_data = xgb.DMatrix(data=X_valid, label=y_valid, feature_names=X.columns)
@@ -272,12 +294,12 @@ def train_model_regression(X, y,
         else:
             scores.append(metrics_dict[eval_metric]['scoring_function'](y_valid, y_pred_valid, X_valid['type']))
         print(f"current score {scores[-1]:.5f}")
-        if X_test:
+        if X_test is not None:
             prediction += y_pred
         else:
             prediction = None
         
-        if model_type == 'lgb' and plot_feature_importance:
+        if model_type == 'lgb':
             # feature importance
             fold_importance = pd.DataFrame()
             fold_importance["feature"] = columns
@@ -292,7 +314,9 @@ def train_model_regression(X, y,
             print("saving results...")
             np.save(res_filename, result_dict)
 
-    if X_test:
+        gc.collect()
+
+    if X_test is not None:
         prediction /= folds.n_splits
     
     print('CV mean score: {0:.4f}, std: {1:.4f}.'.format(np.mean(scores), np.std(scores)))
@@ -301,20 +325,6 @@ def train_model_regression(X, y,
     result_dict['prediction'] = prediction
     result_dict['scores'] = scores
     
-    if model_type == 'lgb':
-        if plot_feature_importance:
-            feature_importance["importance"] /= folds.n_splits
-            cols = feature_importance[["feature", "importance"]].groupby("feature").mean().sort_values(
-                by="importance", ascending=False)[:50].index
-
-            best_features = feature_importance.loc[feature_importance.feature.isin(cols)]
-
-            plt.figure(figsize=(16, 12));
-            sns.barplot(x="importance", y="feature", data=best_features.sort_values(by="importance", ascending=False));
-            plt.title('LGB Features (avg over folds)')
-            
-            result_dict['feature_importance'] = feature_importance
-        
     return result_dict
     
 

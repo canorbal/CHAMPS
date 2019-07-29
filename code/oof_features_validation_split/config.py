@@ -15,7 +15,6 @@ stat_features_table = {
         'atom_index_0',
         'atom_index_1',
         'type',
-        'scalar_coupling_constant',
     ],
     'use_cols': None,
 }
@@ -32,7 +31,6 @@ giba_features_table = {
         'atom_index_0',
         'atom_index_1',
         'type',
-        'scalar_coupling_constant',
 
         'ID',
         'structure_atom_0',
@@ -141,5 +139,6 @@ acsf_feature_table = {
         'y',
         'z',
         'Unnamed: 0',
-    ]
+    ],
+    'use_cols': None,
 }
