@@ -233,7 +233,7 @@ def train_model_regression(X, y,
             y_train, y_valid = y.iloc[train_index], y.iloc[valid_index]
             
         if model_type == 'lgb':
-            model = lgb.LGBMRegressor(**params, n_estimators = n_estimators)
+            model = lgb.LGBMRegressor(**params, n_estimators=n_estimators)
             model.fit(
                 X_train, y_train,
                 eval_set=[(X_train, y_train), (X_valid, y_valid)],
