@@ -12,7 +12,7 @@ import gc
 types_config = {
     '1JHC': {
         'n_estimators': 30000,
-        'learning_rate': 0.02,
+        'learning_rate': 0.018,
     },
     '1JHN': {
         'n_estimators': 23000,
@@ -32,15 +32,15 @@ types_config = {
     },
     '3JHC': {
         'n_estimators': 23000,
-        'learning_rate': 0.012,
+        'learning_rate': 0.013,
     },
     '3JHH': {
         'n_estimators': 17000,
-        'learning_rate': 0.012,
+        'learning_rate': 0.013,
     },
     '3JHN': {
         'n_estimators': 17000,
-        'learning_rate': 0.012,
+        'learning_rate': 0.013,
     }
 
 }
@@ -48,20 +48,21 @@ types_config = {
 if __name__ == '__main__':
 
     debug = False
-    OOF_N_FOLDS = 20
     data_fold_path = Path('../data/oof_tables/')
     sub_filename = '../submissions/types_split_models_400_feats.csv'
 
     if debug:
-        nrows = 5000
+        nrows = None
         n_estimators = 100
         n_folds = 3
         result_filename = None
         use_best_columns = 50
         result_filename_prefix = Path('../results/each_type/')
+        OOF_N_FOLDS = 20
 
     else:
         nrows = None
+        OOF_N_FOLDS = 20
         result_filename_prefix = Path('../results/each_type/')
         use_best_columns = 400
         n_folds = 10
@@ -81,34 +82,20 @@ if __name__ == '__main__':
 
     train_best_features = best_features + ['id', 'scalar_coupling_constant']
 
-    print('reading folds...')
-    folds_data_list = []
-    for fold_num in range(OOF_N_FOLDS):
-        print(f'reading fold {fold_num}...')
-        fold_path = data_fold_path / f'{fold_num}_fold_oof_tables.csv'
-        fold_data = pd.read_csv(fold_path, nrows=nrows, usecols=train_best_features)
-        folds_data_list.append(fold_data)
-
-    train = pd.concat(folds_data_list, axis=0, ignore_index=True)
-    train = train.sort_values('id')
-    train.index = range(len(train))
+    full_train = pd.read_csv('../data/train.csv', nrows=nrows)
+    y = full_train['scalar_coupling_constant']
+    full_test = pd.read_csv(
+        '../data/test_folds/test_features.csv',
+        nrows=nrows,
+        usecols=best_features
+    )
 
     for col in categorical_cols:
-        if col in train.columns:
-            train[col] = train[col].astype('category')
+        if col in full_test.columns:
+            full_test[col] = full_test[col].astype('category')
 
-    y = train['scalar_coupling_constant']
-    del folds_data_list
-    gc.collect()
-
-    test = pd.read_csv('../data/test_folds/test_features.csv', nrows=nrows, usecols=best_features)
-
-    for col in categorical_cols:
-        if col in test.columns:
-            test[col] = test[col].astype('category')
-
-    oof_train = pd.read_csv('../data/train_oof_features.csv', nrows=len(train))
-    oof_test = pd.read_csv('../data/test_oof_features.csv', nrows=len(test))
+    oof_train = pd.read_csv('../data/train_oof_features.csv', nrows=len(full_train))
+    oof_test = pd.read_csv('../data/test_oof_features.csv', nrows=len(full_test))
     oof_drop_cols = [
         'id',
         'molecule_name',
@@ -123,49 +110,76 @@ if __name__ == '__main__':
 
     best_features = best_features + list(oof_train.columns)
 
-    train = train_utils.concat_stupidly(train, oof_train)
-    test = train_utils.concat_stupidly(test, oof_test)
+    X_short = pd.DataFrame({
+        'ind': list(full_train.index),
+        'type': full_train['type'].values,
+        'oof': [0] * len(full_train),
+        'target': y.values
+    })
 
-    train = artgor_utils.reduce_mem_usage(train)
-    test = artgor_utils.reduce_mem_usage(test)
-    gc.collect()
-
-    gc.collect()
+    X_short_test = pd.DataFrame({
+        'ind': list(full_test.index),
+        'type': full_test['type'].values,
+        'prediction': [0] * len(full_test)
+    })
 
     CV_score = 0
+    folds = KFold(n_splits=n_folds, shuffle=True, random_state=0)
 
     params = {
         'num_leaves': 128,
         'objective': 'regression',
         "boosting_type": "gbdt",
         "subsample_freq": 1,
-        "subsample": 0.7,
+        "subsample": 0.75,
         "bagging_seed": 11,
         "metric": 'mae',
-        'reg_alpha': 0.3,
-        'reg_lambda': 0.5,
-        'colsample_bytree': 0.8,
+        'reg_alpha': 0.4,
+        'reg_lambda': 0.6,
+        'colsample_bytree': 0.85,
         'num_threads': 14,
         'device': 'gpu',
         'gpu_device_id': 0
     }
-    folds = KFold(n_splits=n_folds, shuffle=True, random_state=0)
 
-    X_short = pd.DataFrame({
-        'ind': list(train.index),
-        'type': train['type'].values,
-        'oof': [0] * len(train),
-        'target': y.values
-    })
-
-    X_short_test = pd.DataFrame({
-        'ind': list(test.index),
-        'type': test['type'].values,
-        'prediction': [0] * len(test)
-    })
-
-    for type_num, type in enumerate(train['type'].unique()):
+    # for type_num, type in enumerate(full_train['type'].unique()):
+    for type_num, type in enumerate(['3JHC', '3JHN']):
         print(f'Training of type {type}...')
+        train_mask = (full_train['type'] == type)
+        test_mask = (full_test['type'] == type)
+
+        print('reading folds...')
+        folds_data_list = []
+        for fold_num in range(OOF_N_FOLDS):
+            print(f'reading fold {fold_num}...')
+            fold_path = data_fold_path / f'{fold_num}_fold_oof_tables.csv'
+            fold_data = pd.read_csv(fold_path, nrows=nrows, usecols=train_best_features)
+            fold_data = fold_data[fold_data['type'] == type]
+            folds_data_list.append(fold_data)
+            gc.collect()
+
+        type_train = pd.concat(folds_data_list, axis=0, ignore_index=True)
+        type_train = type_train.sort_values('id')
+
+        for col in categorical_cols:
+            if col in type_train.columns:
+                type_train[col] = type_train[col].astype('category')
+
+        type_y = type_train['scalar_coupling_constant']
+        del folds_data_list
+        gc.collect()
+
+        type_test = full_test[test_mask]
+
+        type_oof_train = oof_train[train_mask]
+        type_oof_test = oof_test[test_mask]
+
+        type_train = train_utils.concat_stupidly(type_train, type_oof_train)
+        type_test = train_utils.concat_stupidly(type_test, type_oof_test)
+
+        type_train = artgor_utils.reduce_mem_usage(type_train)
+        type_test = artgor_utils.reduce_mem_usage(type_test)
+
         n_estimators = types_config[type]['n_estimators']
         lr = types_config[type]['learning_rate']
 
@@ -175,19 +189,13 @@ if __name__ == '__main__':
             params['learning_rate'] = 0.01
             n_estimators = 100
 
-        result_filename = result_filename_prefix / f'350_feats_types_split_models_{type}.npy'
-        index_type = (train['type'] == type)
-        index_type_test = (test['type'] == type)
+        result_filename = result_filename_prefix / f'{use_best_columns}_feats_types_split_models_{type}.npy'
 
-        X_t = train.loc[index_type].copy()
-        X_test_t = test.loc[index_type_test].copy()
-        y_t = y[index_type]
-
-        print('X_test_t.shape ', X_test_t.shape)
-        print('X_t.shape ', X_t.shape)
+        print('X_test_t.shape ', type_test.shape)
+        print('X_t.shape ', type_train.shape)
         print('Training...')
         result_dict_lgb = artgor_utils.train_model_regression(
-            X=X_t, y=y_t, X_test=X_test_t,
+            X=type_train, y=type_y, X_test=type_test,
             params=params,
             columns=best_features,
             folds=folds,
@@ -200,7 +208,7 @@ if __name__ == '__main__':
             res_filename=result_filename
         )
 
-        del X_t, X_test_t
+        del type_train, type_test
         gc.collect()
 
         if not debug:
@@ -212,7 +220,7 @@ if __name__ == '__main__':
         ## manually computing the cv score
         CV_score += np.array(result_dict_lgb['scores']).mean() / len(types_config)
 
-    print(f'Total val score: {CV_score}')
-    if not debug:
-        sub['scalar_coupling_constant'] = X_short_test['prediction']
-        sub.to_csv(sub_filename, index=False)
+    # print(f'Total val score: {CV_score}')
+    # if not debug:
+    #     sub['scalar_coupling_constant'] = X_short_test['prediction']
+    #     sub.to_csv(sub_filename, index=False)

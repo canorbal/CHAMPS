@@ -9,6 +9,7 @@ from tqdm import tqdm
 from sklearn import metrics
 from utils.artgor_utils import group_mean_log_mae
 import csv
+import gc
 import lightgbm as lgb
 import xgboost as xgb
 
@@ -359,3 +360,97 @@ def process_symmetry(df):
         previous_molecule = molecule_name
 
     return pd.DataFrame(res_list)
+
+
+def train_lgbm_on_fold(
+        X_train, y_train, X_val, y_val, n_estimators,
+        params, verbose=50, early_stopping_rounds=100, columns=None,
+):
+    columns = X_train.columns if columns is None else columns
+    X_train, X_val = X_train[columns], X_val[columns]
+
+    model = lgb.LGBMRegressor(**params, n_estimators=n_estimators)
+    model.fit(
+        X_train, y_train,
+        eval_set=[(X_train, y_train), (X_val, y_val)],
+        eval_metric='mae',
+        verbose=verbose, early_stopping_rounds=early_stopping_rounds
+    )
+
+    return model
+
+
+def permutation_importance(
+        model, X_val, y_val, metric, n_folds, columns=None,
+        minimize=True, verbose=True, results=None):
+
+    if results is None:
+        results = {}
+
+    columns = X_val.columns if columns is None else columns
+    y_pred = model.predict(X_val[columns], num_iteration=model.best_iteration_)
+
+    if 'base_score' in results:
+        results['base_score'] += metric(y_val, y_pred) / n_folds
+    else:
+        results['base_score'] = metric(y_val, y_pred) / n_folds
+
+    if verbose:
+        print(f'Base score {results["base_score"]:.5}')
+
+    for col in tqdm(columns):
+        print(f'col {col} computing')
+        freezed_col = X_val[col].copy()
+
+        if isinstance(X_val[col].dtype, pd.api.types.CategoricalDtype):
+            X_val[col] = np.random.permutation(X_val[col])
+            X_val[col] = X_val[col].astype('category')
+        else:
+            X_val[col] = np.random.permutation(X_val[col])
+
+        preds = model.predict(X_val[columns], num_iteration=model.best_iteration_)
+        metric_value = metric(y_val, preds) / n_folds
+        if col in results:
+            results[col] += metric_value
+        else:
+            results[col] = metric_value
+
+        X_val[col] = freezed_col
+
+        if verbose:
+            print(f'column: {col} - {metric_value:.5}')
+
+    return results
+
+
+def process_oof_results(len_test=2505542, n_folds=20):
+    total_importance = None
+    oof_train = []
+    oof_test = np.zeros((len_test, n_folds))
+
+    for i in range(n_folds):
+        results = np.load(
+            f"../data/oof_tables/v1_oof_results/fold_{i}_scalar_coupling_constant_result.npy",
+            allow_pickle=True
+        )
+
+        results = results.item()
+        cols = results['feature_importance'].groupby(['feature'])['importance'].mean().sort_index(ascending=False)
+
+        if total_importance is None:
+            total_importance = cols
+        else:
+            total_importance = total_importance + cols
+
+        oof_train.append(results['oof'])
+        oof_test[:, i] = results['prediction']
+
+    total_importance = total_importance.sort_values(ascending=False)
+    gc.collect()
+
+    return {
+        'total_importance': total_importance,
+        'oof_train_list': oof_train,
+        'oof_test': oof_test,
+    }
+

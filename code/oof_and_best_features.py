@@ -9,38 +9,6 @@ from utils import artgor_utils, train_utils
 import gc
 
 
-def process_oof_results(len_test=2505542, n_folds=20):
-    total_importance = None
-    oof_train = []
-    oof_test = np.zeros((len_test, n_folds))
-
-    for i in range(20):
-        results = np.load(
-            f"../data/oof_tables/v1_oof_results/fold_{i}_scalar_coupling_constant_result.npy",
-            allow_pickle=True
-        )
-
-        results = results.item()
-        cols = results['feature_importance'].groupby(['feature'])['importance'].mean().sort_index(ascending=False)
-
-        if total_importance is None:
-            total_importance = cols
-        else:
-            total_importance = total_importance + cols
-
-        oof_train.append(results['oof'])
-        oof_test[:, i] = results['prediction']
-
-    total_importance = total_importance.sort_values(ascending=False)
-    gc.collect()
-
-    return {
-        'total_importance': total_importance,
-        'oof_train_list': oof_train,
-        'oof_test': oof_test,
-    }
-
-
 if __name__ == '__main__':
 
     debug = False
@@ -63,7 +31,7 @@ if __name__ == '__main__':
         n_folds = 10
 
     sub = pd.read_csv('../data/sample_submission.csv', nrows=nrows)
-    oof_result_dict = process_oof_results(n_folds=OOF_N_FOLDS)
+    oof_result_dict = train_utils.process_oof_results(n_folds=OOF_N_FOLDS)
     best_features = list(oof_result_dict['total_importance'].index[:use_best_columns])
 
     categorical_cols = [

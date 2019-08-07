@@ -164,13 +164,13 @@ def group_mean_log_mae(y_true, y_pred, types, floor=1e-9):
     
 
 def train_model_regression(X, y,
-                           params, folds,
+                           params, folds, n_folds,
                            X_test=None,
                            model_type='lgb',
                            eval_metric='mae', columns=None,
                            verbose=10000, early_stopping_rounds=200,
-                           n_estimators=50000, cat_features=None,
-                           res_filename=None, return_models_list=False):
+                           cat_features=None,
+                           res_filename=None):
     """
     A function to train a variety of regression models.
     Returns dictionary with oof predictions, test predictions, scores and, if necessary, feature importances.
@@ -220,7 +220,11 @@ def train_model_regression(X, y,
     # list of scores on folds
     scores = []
     feature_importance = pd.DataFrame()
-    
+    if X_test is not None:
+        y_pred = np.zeros((len(X_test), n_folds))
+        print('X_test', X_test.shape)
+        print('y_pred', y_pred.shape)
+
     # split and train on folds
     for fold_n, (train_index, valid_index) in enumerate(folds.split(X)):
         gc.collect()
@@ -233,7 +237,7 @@ def train_model_regression(X, y,
             y_train, y_valid = y.iloc[train_index], y.iloc[valid_index]
             
         if model_type == 'lgb':
-            model = lgb.LGBMRegressor(**params, n_estimators=n_estimators)
+            model = lgb.LGBMRegressor(**params)
             model.fit(
                 X_train, y_train,
                 eval_set=[(X_train, y_train), (X_valid, y_valid)],
@@ -246,18 +250,18 @@ def train_model_regression(X, y,
                 print('test prediction...')
                 if X_test.shape[0] > 10**6 and X_test.shape[1] > 200:
                     step = 10**5
-                    y_pred = np.zeros(len(X_test))
 
                     for i in range(0, len(X_test), step):
                         print(f'test fold {i}')
                         start = i
                         finish = i + step
                         batch_pred = model.predict(X_test[start:finish], num_iteration=model.best_iteration_)
-                        y_pred[start:finish] = batch_pred
+                        y_pred[start:finish, fold_n] = batch_pred
 
-                    assert len(y_pred) == len(X_test)
                 else:
-                    y_pred = model.predict(X_test, num_iteration=model.best_iteration_)
+                    print(X_test.shape)
+                    print(y_pred.shape)
+                    y_pred[:, fold_n] = model.predict(X_test, num_iteration=model.best_iteration_)
 
         if model_type == 'xgb':
             train_data = xgb.DMatrix(data=X_train, label=y_train, feature_names=X.columns)
@@ -294,10 +298,6 @@ def train_model_regression(X, y,
         else:
             scores.append(metrics_dict[eval_metric]['scoring_function'](y_valid, y_pred_valid, X_valid['type']))
         print(f"current score {scores[-1]:.5f}")
-        if X_test is not None:
-            prediction += y_pred
-        else:
-            prediction = None
         
         if model_type == 'lgb':
             # feature importance
@@ -315,14 +315,11 @@ def train_model_regression(X, y,
             np.save(res_filename, result_dict)
 
         gc.collect()
-
-    if X_test is not None:
-        prediction /= folds.n_splits
     
     print('CV mean score: {0:.4f}, std: {1:.4f}.'.format(np.mean(scores), np.std(scores)))
     
     result_dict['oof'] = oof
-    result_dict['prediction'] = prediction
+    result_dict['prediction'] = np.median(y_pred, axis=1)
     result_dict['scores'] = scores
     
     return result_dict
