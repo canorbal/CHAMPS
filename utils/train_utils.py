@@ -22,7 +22,7 @@ import xgboost as xgb
 def concat_stupidly(a, b):
     cols_to_add = [col for col in b.columns if col not in a]
     for col in cols_to_add:
-        a[col] = b[col].values
+        a.loc[:, col] = b[col].values
     return a
 
 

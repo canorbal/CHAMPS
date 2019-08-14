@@ -11,10 +11,9 @@ import gc
 
 types_config = {
     '1JHC': {
-        'num_leaves': 250,
-        # 'max_bin': 300,
-        'learning_rate': 0.008,
-        'num_iterations': 50000,
+        'num_leaves': 128,
+        'learning_rate': 0.002,
+        'num_iterations': 100000,
         'objective': 'regression',
         "boosting_type": "gbdt",
         "subsample_freq": 1,
@@ -23,40 +22,15 @@ types_config = {
         "metric": 'mae',
         'reg_alpha': 0.4,
         'reg_lambda': 0.6,
-        'colsample_bytree': 0.8,
+        'colsample_bytree': 0.9,
         'num_threads': 14,
         'device': 'gpu',
         'gpu_device_id': 0
     },
     '1JHN': {
-        'n_estimators': 23000,
-        'learning_rate': 0.015,
-    },
-    '2JHC': {
-        'n_estimators': 23000,
-        'learning_rate': 0.015,
-    },
-    '2JHH': {
-        'n_estimators': 23000,
-        'learning_rate': 0.015,
-    },
-    '2JHN': {
-        'n_estimators': 17000,
-        'learning_rate': 0.015,
-    },
-    '3JHC': {
-        'n_estimators': 23000,
-        'learning_rate': 0.013,
-    },
-    '3JHH': {
-        'n_estimators': 17000,
-        'learning_rate': 0.013,
-    },
-    '3JHN': {
-        'num_leaves': 200,
-        # 'max_bin': 300,
-        'learning_rate': 0.01,
-        'num_iterations': 30000,
+        'num_leaves': 128,
+        'learning_rate': 0.002,
+        'num_iterations': 100000,
         'objective': 'regression',
         "boosting_type": "gbdt",
         "subsample_freq": 1,
@@ -65,13 +39,115 @@ types_config = {
         "metric": 'mae',
         'reg_alpha': 0.4,
         'reg_lambda': 0.6,
-        'colsample_bytree': 0.8,
+        'colsample_bytree': 0.9,
+        'num_threads': 14,
+        'device': 'gpu',
+        'gpu_device_id': 0
+    },
+    '2JHC': {
+        'num_leaves': 128,
+        'learning_rate': 0.002,
+        'num_iterations': 100000,
+        'objective': 'regression',
+        "boosting_type": "gbdt",
+        "subsample_freq": 1,
+        "subsample": 0.7,
+        "bagging_seed": 11,
+        "metric": 'mae',
+        'reg_alpha': 0.4,
+        'reg_lambda': 0.6,
+        'colsample_bytree': 0.9,
+        'num_threads': 14,
+        'device': 'gpu',
+        'gpu_device_id': 0
+    },
+    '2JHH': {
+        'num_leaves': 128,
+        'learning_rate': 0.002,
+        'num_iterations': 100000,
+        'objective': 'regression',
+        "boosting_type": "gbdt",
+        "subsample_freq": 1,
+        "subsample": 0.7,
+        "bagging_seed": 11,
+        "metric": 'mae',
+        'reg_alpha': 0.4,
+        'reg_lambda': 0.6,
+        'colsample_bytree': 0.9,
+        'num_threads': 14,
+        'device': 'gpu',
+        'gpu_device_id': 0
+    },
+    '2JHN': {
+        'num_leaves': 128,
+        'learning_rate': 0.002,
+        'num_iterations': 100000,
+        'objective': 'regression',
+        "boosting_type": "gbdt",
+        "subsample_freq": 1,
+        "subsample": 0.7,
+        "bagging_seed": 11,
+        "metric": 'mae',
+        'reg_alpha': 0.4,
+        'reg_lambda': 0.6,
+        'colsample_bytree': 0.9,
+        'num_threads': 14,
+        'device': 'gpu',
+        'gpu_device_id': 0
+    },
+    '3JHC': {
+        'num_leaves': 128,
+        'learning_rate': 0.002,
+        'num_iterations': 100000,
+        'objective': 'regression',
+        "boosting_type": "gbdt",
+        "subsample_freq": 1,
+        "subsample": 0.7,
+        "bagging_seed": 11,
+        "metric": 'mae',
+        'reg_alpha': 0.4,
+        'reg_lambda': 0.6,
+        'colsample_bytree': 0.9,
+        'num_threads': 14,
+        'device': 'gpu',
+        'gpu_device_id': 0
+    },
+    '3JHH': {
+        'num_leaves': 128,
+        'learning_rate': 0.002,
+        'num_iterations': 100000,
+        'objective': 'regression',
+        "boosting_type": "gbdt",
+        "subsample_freq": 1,
+        "subsample": 0.7,
+        "bagging_seed": 11,
+        "metric": 'mae',
+        'reg_alpha': 0.4,
+        'reg_lambda': 0.6,
+        'colsample_bytree': 0.9,
+        'num_threads': 14,
+        'device': 'gpu',
+        'gpu_device_id': 0
+    },
+    '3JHN': {
+        'num_leaves': 128,
+        'learning_rate': 0.002,
+        'num_iterations': 100000,
+        'objective': 'regression',
+        "boosting_type": "gbdt",
+        "subsample_freq": 1,
+        "subsample": 0.7,
+        "bagging_seed": 11,
+        "metric": 'mae',
+        'reg_alpha': 0.4,
+        'reg_lambda': 0.6,
+        'colsample_bytree': 0.9,
         'num_threads': 14,
         'device': 'gpu',
         'gpu_device_id': 0
     }
-
 }
+
 
 if __name__ == '__main__':
 
@@ -91,7 +167,7 @@ if __name__ == '__main__':
         nrows = None
         OOF_N_FOLDS = 20
         result_filename_prefix = Path('../results/each_type/')
-        use_best_columns = 400
+        use_best_columns = 350
         n_folds = 10
 
     sub = pd.read_csv('../data/sample_submission.csv', nrows=nrows)
@@ -154,7 +230,7 @@ if __name__ == '__main__':
     folds = KFold(n_splits=n_folds, shuffle=True, random_state=0)
 
     # for type_num, type in enumerate(full_train['type'].unique()):
-    for type_num, type in enumerate(['1JHC']):
+    for type_num, type in enumerate(['2JHH']):
         print(f'Training of type {type}...')
         train_mask = (full_train['type'] == type)
         test_mask = (full_test['type'] == type)
@@ -188,12 +264,29 @@ if __name__ == '__main__':
         type_train = train_utils.concat_stupidly(type_train, type_oof_train)
         type_test = train_utils.concat_stupidly(type_test, type_oof_test)
 
+        print('reading distance based features...')
+        type_dist_train = pd.read_csv(f'../data/{type}_train_distance_based_feats.csv')
+        type_dist_train.drop('scalar_coupling_constant', axis=1, inplace=True)
+        type_dist_test = pd.read_csv(f'../data/{type}_test_distance_based_feats.csv')
+        atoms_categorical_cols = [f'atom_{i}' for i in range(2, 10)]
+        for df in [type_dist_test, type_dist_train]:
+            df[atoms_categorical_cols] = df[atoms_categorical_cols].astype('category')
+
+        if type_num == 0:
+            best_features = best_features + list(type_dist_train.columns)
+
+        print('concating distance features...')
+        type_train = train_utils.concat_stupidly(type_train, type_dist_train)
+        type_test = train_utils.concat_stupidly(type_test, type_dist_test)
+        del type_dist_train, type_dist_test
+        gc.collect()
+
         type_train = artgor_utils.reduce_mem_usage(type_train)
         type_test = artgor_utils.reduce_mem_usage(type_test)
         gc.collect()
 
         params = types_config[type]
-        result_filename = result_filename_prefix / f'tuned_{use_best_columns}_feats_types_split_models_{type}.npy'
+        result_filename = result_filename_prefix / f'100k_iters_distance_{use_best_columns}_feats_types_split_models_{type}.npy'
 
         print('X_test_t.shape ', type_test.shape)
         print('X_t.shape ', type_train.shape)
@@ -224,6 +317,3 @@ if __name__ == '__main__':
         CV_score += np.array(result_dict_lgb['scores']).mean() / len(types_config)
 
     print(f'Total val score: {CV_score}')
-    # if not debug:
-    #     sub['scalar_coupling_constant'] = X_short_test['prediction']
-    #     sub.to_csv(sub_filename, index=False)

@@ -11,45 +11,147 @@ import gc
 
 types_config = {
     '1JHC': {
-        'n_estimators': 30000,
-        'learning_rate': 0.018,
+        'num_leaves': 128,
+        'learning_rate': 0.005,
+        'num_iterations': 100000,
+        'objective': 'regression',
+        "boosting_type": "gbdt",
+        "subsample_freq": 1,
+        "subsample": 0.7,
+        "bagging_seed": 11,
+        "metric": 'mae',
+        'reg_alpha': 0.4,
+        'reg_lambda': 0.6,
+        'colsample_bytree': 0.9,
+        'num_threads': 14,
+        'device': 'gpu',
+        'gpu_device_id': 0
     },
     '1JHN': {
-        'n_estimators': 23000,
-        'learning_rate': 0.015,
+        'num_leaves': 128,
+        'learning_rate': 0.005,
+        'num_iterations': 100000,
+        'objective': 'regression',
+        "boosting_type": "gbdt",
+        "subsample_freq": 1,
+        "subsample": 0.7,
+        "bagging_seed": 11,
+        "metric": 'mae',
+        'reg_alpha': 0.4,
+        'reg_lambda': 0.6,
+        'colsample_bytree': 0.9,
+        'num_threads': 14,
+        'device': 'gpu',
+        'gpu_device_id': 0
     },
     '2JHC': {
-        'n_estimators': 23000,
-        'learning_rate': 0.015,
+        'num_leaves': 128,
+        'learning_rate': 0.005,
+        'num_iterations': 100000,
+        'objective': 'regression',
+        "boosting_type": "gbdt",
+        "subsample_freq": 1,
+        "subsample": 0.7,
+        "bagging_seed": 11,
+        "metric": 'mae',
+        'reg_alpha': 0.4,
+        'reg_lambda': 0.6,
+        'colsample_bytree': 0.9,
+        'num_threads': 14,
+        'device': 'gpu',
+        'gpu_device_id': 0
     },
     '2JHH': {
-        'n_estimators': 23000,
-        'learning_rate': 0.015,
+        'num_leaves': 128,
+        'learning_rate': 0.005,
+        'num_iterations': 100000,
+        'objective': 'regression',
+        "boosting_type": "gbdt",
+        "subsample_freq": 1,
+        "subsample": 0.7,
+        "bagging_seed": 11,
+        "metric": 'mae',
+        'reg_alpha': 0.4,
+        'reg_lambda': 0.6,
+        'colsample_bytree': 0.9,
+        'num_threads': 14,
+        'device': 'gpu',
+        'gpu_device_id': 0
     },
     '2JHN': {
-        'n_estimators': 17000,
-        'learning_rate': 0.015,
+        'num_leaves': 128,
+        'learning_rate': 0.005,
+        'num_iterations': 100000,
+        'objective': 'regression',
+        "boosting_type": "gbdt",
+        "subsample_freq": 1,
+        "subsample": 0.7,
+        "bagging_seed": 11,
+        "metric": 'mae',
+        'reg_alpha': 0.4,
+        'reg_lambda': 0.6,
+        'colsample_bytree': 0.9,
+        'num_threads': 14,
+        'device': 'gpu',
+        'gpu_device_id': 0
     },
     '3JHC': {
-        'n_estimators': 23000,
-        'learning_rate': 0.013,
+        'num_leaves': 128,
+        'learning_rate': 0.005,
+        'num_iterations': 100000,
+        'objective': 'regression',
+        "boosting_type": "gbdt",
+        "subsample_freq": 1,
+        "subsample": 0.7,
+        "bagging_seed": 11,
+        "metric": 'mae',
+        'reg_alpha': 0.4,
+        'reg_lambda': 0.6,
+        'colsample_bytree': 0.9,
+        'num_threads': 14,
+        'device': 'gpu',
+        'gpu_device_id': 0
     },
     '3JHH': {
-        'n_estimators': 17000,
-        'learning_rate': 0.013,
+        'num_leaves': 128,
+        'learning_rate': 0.005,
+        'num_iterations': 100000,
+        'objective': 'regression',
+        "boosting_type": "gbdt",
+        "subsample_freq": 1,
+        "subsample": 0.7,
+        "bagging_seed": 11,
+        "metric": 'mae',
+        'reg_alpha': 0.4,
+        'reg_lambda': 0.6,
+        'colsample_bytree': 0.9,
+        'num_threads': 14,
+        'device': 'gpu',
+        'gpu_device_id': 0
     },
     '3JHN': {
-        'n_estimators': 17000,
-        'learning_rate': 0.013,
+        'num_leaves': 128,
+        'learning_rate': 0.005,
+        'num_iterations': 100000,
+        'objective': 'regression',
+        "boosting_type": "gbdt",
+        "subsample_freq": 1,
+        "subsample": 0.7,
+        "bagging_seed": 11,
+        "metric": 'mae',
+        'reg_alpha': 0.4,
+        'reg_lambda': 0.6,
+        'colsample_bytree': 0.9,
+        'num_threads': 14,
+        'device': 'gpu',
+        'gpu_device_id': 0
     }
-
 }
 
 if __name__ == '__main__':
 
     debug = False
     data_fold_path = Path('../data/oof_tables/')
-    sub_filename = '../submissions/types_split_models_400_feats.csv'
 
     if debug:
         nrows = None
@@ -64,8 +166,8 @@ if __name__ == '__main__':
         nrows = None
         OOF_N_FOLDS = 20
         result_filename_prefix = Path('../results/each_type/')
-        use_best_columns = 400
-        n_folds = 10
+        use_best_columns = 600
+        n_folds = 5
 
     sub = pd.read_csv('../data/sample_submission.csv', nrows=nrows)
     oof_result_dict = train_utils.process_oof_results(n_folds=OOF_N_FOLDS)
@@ -126,24 +228,7 @@ if __name__ == '__main__':
     CV_score = 0
     folds = KFold(n_splits=n_folds, shuffle=True, random_state=0)
 
-    params = {
-        'num_leaves': 128,
-        'objective': 'regression',
-        "boosting_type": "gbdt",
-        "subsample_freq": 1,
-        "subsample": 0.75,
-        "bagging_seed": 11,
-        "metric": 'mae',
-        'reg_alpha': 0.4,
-        'reg_lambda': 0.6,
-        'colsample_bytree': 0.85,
-        'num_threads': 14,
-        'device': 'gpu',
-        'gpu_device_id': 0
-    }
-
-    # for type_num, type in enumerate(full_train['type'].unique()):
-    for type_num, type in enumerate(['3JHC', '3JHN']):
+    for type_num, type in enumerate(full_train['type'].unique()):
         print(f'Training of type {type}...')
         train_mask = (full_train['type'] == type)
         test_mask = (full_test['type'] == type)
@@ -177,19 +262,29 @@ if __name__ == '__main__':
         type_train = train_utils.concat_stupidly(type_train, type_oof_train)
         type_test = train_utils.concat_stupidly(type_test, type_oof_test)
 
+        print('reading distance based features...')
+        type_dist_train = pd.read_csv(f'../data/{type}_train_distance_based_feats.csv')
+        type_dist_train.drop('scalar_coupling_constant', axis=1, inplace=True)
+        type_dist_test = pd.read_csv(f'../data/{type}_test_distance_based_feats.csv')
+        atoms_categorical_cols = [f'atom_{i}' for i in range(2, 10)]
+        for df in [type_dist_test, type_dist_train]:
+            df[atoms_categorical_cols] = df[atoms_categorical_cols].astype('category')
+
+        if type_num == 0:
+            best_features = best_features + list(type_dist_train.columns)
+
+        print('concating distance features...')
+        type_train = train_utils.concat_stupidly(type_train, type_dist_train)
+        type_test = train_utils.concat_stupidly(type_test, type_dist_test)
+        del type_dist_train, type_dist_test
+        gc.collect()
+
         type_train = artgor_utils.reduce_mem_usage(type_train)
         type_test = artgor_utils.reduce_mem_usage(type_test)
+        gc.collect()
 
-        n_estimators = types_config[type]['n_estimators']
-        lr = types_config[type]['learning_rate']
-
-        if not debug:
-            params['learning_rate'] = lr
-        else:
-            params['learning_rate'] = 0.01
-            n_estimators = 100
-
-        result_filename = result_filename_prefix / f'{use_best_columns}_feats_types_split_models_{type}.npy'
+        params = types_config[type]
+        result_filename = result_filename_prefix / f'100k_iters_distance_feats_{use_best_columns}_feats_types_split_models_{type}.npy'
 
         print('X_test_t.shape ', type_test.shape)
         print('X_t.shape ', type_train.shape)
@@ -204,7 +299,6 @@ if __name__ == '__main__':
             eval_metric='group_mae',
             verbose=50,
             early_stopping_rounds=1000,
-            n_estimators=n_estimators,
             res_filename=result_filename
         )
 
@@ -220,7 +314,7 @@ if __name__ == '__main__':
         ## manually computing the cv score
         CV_score += np.array(result_dict_lgb['scores']).mean() / len(types_config)
 
-    # print(f'Total val score: {CV_score}')
+    print(f'Total val score: {CV_score}')
     # if not debug:
     #     sub['scalar_coupling_constant'] = X_short_test['prediction']
     #     sub.to_csv(sub_filename, index=False)
